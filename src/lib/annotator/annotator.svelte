@@ -4,6 +4,8 @@
 	let text = $state<string | null>(null);
 	let textContainerElement: HTMLDivElement | null = $state(null);
 	let highlight = $state<Highlight | null>(null);
+	let showDeleteDialog = $state(false);
+	let selectedRange: AbstractRange | null = $state(null);
 
 	onMount(() => {
 		highlight = new Highlight();
@@ -73,11 +75,10 @@
 				r.endContainer === range.endContainer &&
 				r.endOffset >= range.endOffset
 			) {
-				if (confirm('Delete this highlight?')) {
-					highlight!.delete(r);
-					CSS.highlights.set('custom-highlight', highlight!);
-				}
-
+				selectedRange = r;
+				showDeleteDialog = true;
+				const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;
+				dialog?.showModal();
 				return;
 			}
 		}
@@ -88,6 +89,21 @@
 			// TODO: Add current selection to highlights.
 			console.log('Click highlighted text.');
 		}
+	}
+
+	function deleteHighlight() {
+		if (selectedRange && highlight) {
+			highlight.delete(selectedRange);
+			CSS.highlights.set('custom-highlight', highlight);
+		}
+		closeDeleteDialog();
+	}
+
+	function closeDeleteDialog() {
+		showDeleteDialog = false;
+		selectedRange = null;
+		const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;
+		dialog?.close();
 	}
 </script>
 
@@ -116,6 +132,17 @@
 	</div>
 {/if}
 
+<dialog id="metadata-dialog" class="delete-dialog">
+	<h2>Highlight Metadata</h2>
+	{#if selectedRange}
+		<p>Highlighted text: <strong>{selectedRange.toString()}</strong></p>
+	{/if}
+	<div class="dialog-buttons">
+		<button type="button" onclick={deleteHighlight}>Delete Highlight</button>
+		<button type="button" onclick={closeDeleteDialog}>Close</button>
+	</div>
+</dialog>
+
 <style>
 	::highlight(custom-highlight) {
 		background: yellow;
@@ -125,5 +152,44 @@
 	.highlightable-text {
 		white-space: pre-wrap;
 		outline: none;
+	}
+
+	.delete-dialog {
+		border: 1px solid #ccc;
+		border-radius: 8px;
+		padding: 20px;
+		max-width: 400px;
+	}
+
+	.delete-dialog h2 {
+		margin-top: 0;
+		margin-bottom: 16px;
+	}
+
+	.delete-dialog p {
+		margin-bottom: 20px;
+	}
+
+	.dialog-buttons {
+		display: flex;
+		gap: 10px;
+		justify-content: flex-end;
+	}
+
+	.dialog-buttons button {
+		padding: 8px 16px;
+		border: 1px solid #ccc;
+		border-radius: 4px;
+		cursor: pointer;
+	}
+
+	.dialog-buttons button:first-child {
+		background-color: #dc3545;
+		color: white;
+		border-color: #dc3545;
+	}
+
+	.dialog-buttons button:first-child:hover {
+		background-color: #c82333;
 	}
 </style>
