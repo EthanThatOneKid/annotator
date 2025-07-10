@@ -83,20 +83,10 @@
 		}
 	}
 
-	function handleTextKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
-			// Synthesize a MouseEvent at the center of the element
-			const target = e.currentTarget as HTMLDivElement;
-			const rect = target.getBoundingClientRect();
-			const syntheticEvent = new MouseEvent('click', {
-				clientX: rect.left + rect.width / 2,
-				clientY: rect.top + rect.height / 2,
-				bubbles: true,
-				cancelable: true,
-				view: window
-			});
-			handleTextClick(syntheticEvent);
+	function handleTextKeyDown(event: KeyboardEvent) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			// TODO: Add current selection to highlights.
+			console.log('Click highlighted text.');
 		}
 	}
 </script>
@@ -106,10 +96,10 @@
 		<div
 			bind:this={textContainerElement}
 			class="highlightable-text"
-			role="button"
-			tabindex="0"
 			onclick={handleTextClick}
-			onkeydown={handleTextKeydown}
+			role="textbox"
+			tabindex="0"
+			onkeydown={handleTextKeyDown}
 		>
 			{text}
 		</div>
