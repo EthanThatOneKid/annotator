@@ -1,4 +1,4 @@
-import type { Annotation } from "./annotation";
+import type { Annotation } from './annotation';
 
 /**
  * generateRandomAnnotations generates random annotations.

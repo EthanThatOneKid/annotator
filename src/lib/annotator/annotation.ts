@@ -1,10 +1,12 @@
 /**
- * Annotation is a range of text within some source text.
+ * Annotation is a resource-oriented range of text within some source text.
  */
 export interface Annotation {
 	annotationId: string;
 	rangeStart: number;
 	rangeEnd: number;
+
+	// TODO: Relate to existing resources or create new ones.
 }
 
 /**
