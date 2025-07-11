@@ -1,4 +1,9 @@
 /**
+ * GenerateAnnotations is a function that generates annotations from text.
+ */
+export type GenerateAnnotations = (text: string) => Annotation[] | Promise<Annotation[]>;
+
+/**
  * Annotation is a resource-oriented range of text within some source text.
  */
 export interface Annotation {

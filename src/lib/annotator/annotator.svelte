@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { Annotation } from './annotation';
+	import type { Annotation, GenerateAnnotations } from './annotation';
 	import { toRange } from './annotation';
 	import { getCaretRange } from './caret';
 
 	let props: {
-		generateAnnotations: (text: string) => Annotation[] | Promise<Annotation[]>;
+		generateAnnotations: GenerateAnnotations;
 	} = $props();
 
 	let text = $state<string | null>(null);
@@ -14,13 +14,24 @@
 	let showDialog = $state(false);
 	let selectedRange: AbstractRange | null = $state(null);
 	let isGenerating = $state(false);
-	// Add a variable to store the selected annotation
 	let selectedAnnotation = $state<Annotation | null>(null);
 	let annotations = $state<Annotation[]>([]);
 
 	onMount(() => {
 		highlight = new Highlight();
 	});
+
+	function addAnnotation(annotation: Annotation) {
+		annotations.push(annotation);
+		highlight!.add(toRange(textContainerElement!.firstChild!, annotation));
+		CSS.highlights.set('custom-highlight', highlight!);
+	}
+
+	function removeAnnotation() {
+		annotations = annotations.filter((a) => a.annotationId !== selectedAnnotation!.annotationId);
+		highlight!.delete(selectedRange!);
+		CSS.highlights.set('custom-highlight', highlight!);
+	}
 
 	async function handleFormSubmit(event: Event) {
 		event.preventDefault();
@@ -42,7 +53,6 @@
 			const textNode = textContainerElement!.firstChild;
 			if (textNode && textNode.nodeType === Node.TEXT_NODE) {
 				for (const annotation of annotations) {
-					console.log({ annotation });
 					highlight!.add(toRange(textNode, annotation));
 				}
 
@@ -71,8 +81,11 @@
 			return;
 		}
 
-		highlight!.add(range);
-		CSS.highlights.set('custom-highlight', highlight!);
+		addAnnotation({
+			annotationId: crypto.randomUUID(),
+			rangeStart: range.startOffset,
+			rangeEnd: range.endOffset
+		});
 	}
 
 	function handleTextClick(event: MouseEvent) {
@@ -128,19 +141,8 @@
 		}
 	}
 
-	function deleteHighlight() {
-		if (selectedRange && highlight) {
-			highlight.delete(selectedRange);
-			CSS.highlights.set('custom-highlight', highlight);
-
-			// Remove the corresponding annotation by annotationId
-			if (selectedAnnotation) {
-				annotations = annotations.filter(
-					(a) => a.annotationId !== selectedAnnotation!.annotationId
-				);
-			}
-		}
-
+	function handleDeleteHighlight() {
+		removeAnnotation();
 		closeDeleteDialog();
 	}
 
@@ -204,7 +206,7 @@
 		{/if}
 	{/if}
 	<div class="dialog-buttons">
-		<button type="button" onclick={deleteHighlight}>Delete</button>
+		<button type="button" onclick={handleDeleteHighlight}>Delete</button>
 		<button type="button" onclick={closeDeleteDialog}>Close</button>
 	</div>
 </dialog>
