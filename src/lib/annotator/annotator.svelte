@@ -13,6 +13,7 @@
 	let highlight = $state<Highlight | null>(null);
 	let showDialog = $state(false);
 	let selectedRange: AbstractRange | null = $state(null);
+	let isGenerating = $state(false);
 
 	onMount(() => {
 		highlight = new Highlight();
@@ -29,7 +30,9 @@
 			throw new Error();
 		}
 
+		isGenerating = true;
 		const annotations = await props.generateAnnotations(currentText);
+		isGenerating = false;
 		text = currentText;
 
 		setTimeout(() => {
@@ -124,6 +127,12 @@
 		const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;
 		dialog?.close();
 	}
+
+	function handleGoBack() {
+		text = null;
+		highlight?.clear();
+		CSS.highlights.delete('custom-highlight');
+	}
 </script>
 
 {#if text !== null}
@@ -139,6 +148,7 @@
 			{text}
 		</div>
 		<button type="button" onclick={handleHighlight}>Highlight</button>
+		<button type="button" onclick={handleGoBack}>Go back</button>
 	</div>
 {:else}
 	<div class="source-input-container">
@@ -148,6 +158,13 @@
 			>
 			<button type="submit">Submit</button>
 		</form>
+	</div>
+{/if}
+
+{#if isGenerating}
+	<div class="spinner-container">
+		<div class="spinner"></div>
+		<span>Loading annotations...</span>
 	</div>
 {/if}
 
@@ -210,5 +227,30 @@
 
 	.dialog-buttons button:first-child:hover {
 		background-color: #c82333;
+	}
+
+	.spinner-container {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin-bottom: 1em;
+	}
+
+	.spinner {
+		width: 24px;
+		height: 24px;
+		border: 4px solid #ccc;
+		border-top: 4px solid #333;
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
 	}
 </style>

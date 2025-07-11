@@ -6,7 +6,9 @@ import type { Annotation } from './annotation';
  *
  * @see http://compromise.cool/
  */
-export function generateCompromiseAnnotations(text: string): Annotation[] {
+export async function generateCompromiseAnnotations(text: string): Promise<Annotation[]> {
+	await new Promise((resolve) => setTimeout(resolve, 1000));
+
 	const doc = nlp(text);
 	const topics: Array<{
 		text: string;
