@@ -3,18 +3,23 @@
  */
 export interface Annotation {
 	annotationId: string;
-	sourceId: string;
 	rangeStart: number;
 	rangeEnd: number;
-	rangeText: string;
 }
 
 /**
  * toRange converts an Annotation to a Range that can be used to highlight text.
  */
 export function toRange(node: Node, annotation: Annotation) {
+	if (node.nodeType !== Node.TEXT_NODE) {
+		throw new Error('toRange: node must be a text node');
+	}
+
+	const textLength = (node.textContent ?? '').length;
+	const start = Math.max(0, Math.min(annotation.rangeStart, textLength));
+	const end = Math.max(start, Math.min(annotation.rangeEnd, textLength));
 	const range = new Range();
-	range.setStart(node, annotation.rangeStart);
-	range.setEnd(node, annotation.rangeEnd);
+	range.setStart(node, start);
+	range.setEnd(node, end);
 	return range;
 }

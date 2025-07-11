@@ -20,13 +20,29 @@
 
 	async function handleFormSubmit(event: Event) {
 		event.preventDefault();
+		highlight!.clear();
+
 		const form = event.target as HTMLFormElement;
 		const formData = new FormData(form);
-		text = formData.get('text') as string;
-		highlight!.clear();
-		for (const annotation of await props.generateAnnotations(text)) {
-			highlight!.add(toRange(textContainerElement!, annotation));
+		const currentText = formData.get('text');
+		if (typeof currentText !== 'string') {
+			throw new Error();
 		}
+
+		const annotations = await props.generateAnnotations(currentText);
+		text = currentText;
+
+		setTimeout(() => {
+			const textNode = textContainerElement!.firstChild;
+			if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+				for (const annotation of annotations) {
+					console.log({ annotation });
+					highlight!.add(toRange(textNode, annotation));
+				}
+
+				CSS.highlights.set('custom-highlight', highlight!);
+			}
+		});
 	}
 
 	function handleHighlight() {
