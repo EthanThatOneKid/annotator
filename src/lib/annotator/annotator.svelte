@@ -5,7 +5,7 @@
 	let text = $state<string | null>(null);
 	let textContainerElement: HTMLDivElement | null = $state(null);
 	let highlight = $state<Highlight | null>(null);
-	let showDeleteDialog = $state(false);
+	let showDialog = $state(false);
 	let selectedRange: AbstractRange | null = $state(null);
 
 	onMount(() => {
@@ -26,6 +26,7 @@
 
 		const selection = window.getSelection();
 		if (!selection || selection.rangeCount === 0) {
+			alert('Please select some text before highlighting.');
 			return;
 		}
 
@@ -34,6 +35,7 @@
 			!textContainerElement.contains(range.startContainer) ||
 			!textContainerElement.contains(range.endContainer)
 		) {
+			alert('Please select text within the highlighted area.');
 			return;
 		}
 
@@ -66,7 +68,7 @@
 				r.endOffset >= caretRange.endOffset
 			) {
 				selectedRange = r;
-				showDeleteDialog = true;
+				showDialog = true;
 				const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;
 				dialog?.showModal();
 				return;
@@ -91,7 +93,7 @@
 	}
 
 	function closeDeleteDialog() {
-		showDeleteDialog = false;
+		showDialog = false;
 		selectedRange = null;
 		const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;
 		dialog?.close();
