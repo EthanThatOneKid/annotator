@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { getCaretRange } from './caret';
 
 	let text = $state<string | null>(null);
 	let textContainerElement: HTMLDivElement | null = $state(null);
@@ -50,30 +51,19 @@
 			return;
 		}
 
-		// Get the caret position from the click
-		const range = document.caretRangeFromPoint
-			? document.caretRangeFromPoint(event.clientX, event.clientY)
-			: (function () {
-					const pos = document.caretPositionFromPoint?.(event.clientX, event.clientY);
-					if (pos) {
-						const r = document.createRange();
-						r.setStart(pos.offsetNode, pos.offset);
-						r.collapse(true);
-						return r;
-					}
-					return null;
-				})();
-		if (!range) {
+		// Get the caret position from the click.
+		const caretRange = getCaretRange(event.clientX, event.clientY);
+		if (!caretRange) {
 			return;
 		}
 
 		// Check all highlights for a match.
 		for (const r of highlight!) {
 			if (
-				r.startContainer === range.startContainer &&
-				r.startOffset <= range.startOffset &&
-				r.endContainer === range.endContainer &&
-				r.endOffset >= range.endOffset
+				r.startContainer === caretRange.startContainer &&
+				r.startOffset <= caretRange.startOffset &&
+				r.endContainer === caretRange.endContainer &&
+				r.endOffset >= caretRange.endOffset
 			) {
 				selectedRange = r;
 				showDeleteDialog = true;
@@ -96,6 +86,7 @@
 			highlight.delete(selectedRange);
 			CSS.highlights.set('custom-highlight', highlight);
 		}
+
 		closeDeleteDialog();
 	}
 
@@ -138,7 +129,7 @@
 		<p>Highlighted text: <strong>{selectedRange.toString()}</strong></p>
 	{/if}
 	<div class="dialog-buttons">
-		<button type="button" onclick={deleteHighlight}>Delete Highlight</button>
+		<button type="button" onclick={deleteHighlight}>Delete</button>
 		<button type="button" onclick={closeDeleteDialog}>Close</button>
 	</div>
 </dialog>
