@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { Annotation } from './annotation';
+	import { toRange } from './annotation';
 	import { getCaretRange } from './caret';
+
+	let props: {
+		generateAnnotations: (text: string) => Annotation[] | Promise<Annotation[]>;
+	} = $props();
 
 	let text = $state<string | null>(null);
 	let textContainerElement: HTMLDivElement | null = $state(null);
@@ -12,11 +18,15 @@
 		highlight = new Highlight();
 	});
 
-	function handleFormSubmit(event: Event) {
+	async function handleFormSubmit(event: Event) {
 		event.preventDefault();
 		const form = event.target as HTMLFormElement;
 		const formData = new FormData(form);
 		text = formData.get('text') as string;
+		highlight!.clear();
+		for (const annotation of await props.generateAnnotations(text)) {
+			highlight!.add(toRange(textContainerElement!, annotation));
+		}
 	}
 
 	function handleHighlight() {
@@ -35,7 +45,7 @@
 			!textContainerElement.contains(range.startContainer) ||
 			!textContainerElement.contains(range.endContainer)
 		) {
-			alert('Please select text within the highlighted area.');
+			alert('Please select from the featured text.');
 			return;
 		}
 
