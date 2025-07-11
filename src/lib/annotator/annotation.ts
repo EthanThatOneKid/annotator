@@ -10,12 +10,13 @@ export interface Annotation {
 	annotationId: string;
 	rangeStart: number;
 	rangeEnd: number;
+	reason?: string;
 
 	// TODO: Relate to existing resources or create new ones.
 }
 
 /**
- * toRange converts an Annotation to a Range that can be used to highlight text.
+ * toRange converts an Annotation to a highlightable Range of text.
  */
 export function toRange(node: Node, annotation: Annotation) {
 	if (node.nodeType !== Node.TEXT_NODE) {
