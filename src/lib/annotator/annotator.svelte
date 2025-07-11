@@ -14,6 +14,9 @@
 	let showDialog = $state(false);
 	let selectedRange: AbstractRange | null = $state(null);
 	let isGenerating = $state(false);
+	// Add a variable to store the selected annotation
+	let selectedAnnotation = $state<Annotation | null>(null);
+	let annotations = $state<Annotation[]>([]);
 
 	onMount(() => {
 		highlight = new Highlight();
@@ -31,7 +34,7 @@
 		}
 
 		isGenerating = true;
-		const annotations = await props.generateAnnotations(currentText);
+		annotations = await props.generateAnnotations(currentText);
 		isGenerating = false;
 		text = currentText;
 
@@ -97,6 +100,19 @@
 				r.endOffset >= caretRange.endOffset
 			) {
 				selectedRange = r;
+				// Try to find the corresponding annotation
+				if (
+					textContainerElement &&
+					textContainerElement.firstChild &&
+					textContainerElement.firstChild.nodeType === Node.TEXT_NODE &&
+					Array.isArray(annotations)
+				) {
+					selectedAnnotation =
+						annotations.find((a) => a.rangeStart === r.startOffset && a.rangeEnd === r.endOffset) ||
+						null;
+				} else {
+					selectedAnnotation = null;
+				}
 				showDialog = true;
 				const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;
 				dialog?.showModal();
@@ -116,6 +132,13 @@
 		if (selectedRange && highlight) {
 			highlight.delete(selectedRange);
 			CSS.highlights.set('custom-highlight', highlight);
+
+			// Remove the corresponding annotation by annotationId
+			if (selectedAnnotation) {
+				annotations = annotations.filter(
+					(a) => a.annotationId !== selectedAnnotation!.annotationId
+				);
+			}
 		}
 
 		closeDeleteDialog();
@@ -124,6 +147,7 @@
 	function closeDeleteDialog() {
 		showDialog = false;
 		selectedRange = null;
+		selectedAnnotation = null;
 		const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;
 		dialog?.close();
 	}
@@ -132,6 +156,7 @@
 		text = null;
 		highlight?.clear();
 		CSS.highlights.delete('custom-highlight');
+		annotations = [];
 	}
 </script>
 
@@ -169,9 +194,14 @@
 {/if}
 
 <dialog id="metadata-dialog" class="delete-dialog">
-	<h2>Highlight Metadata</h2>
+	<h2>Annotation Metadata</h2>
 	{#if selectedRange}
 		<p>Highlighted text: <strong>{selectedRange.toString()}</strong></p>
+		{#if selectedAnnotation}
+			<p>Annotation ID: <strong>{selectedAnnotation.annotationId}</strong></p>
+			<p>Range Start: <strong>{selectedAnnotation.rangeStart}</strong></p>
+			<p>Range End: <strong>{selectedAnnotation.rangeEnd}</strong></p>
+		{/if}
 	{/if}
 	<div class="dialog-buttons">
 		<button type="button" onclick={deleteHighlight}>Delete</button>
