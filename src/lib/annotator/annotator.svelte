@@ -6,21 +6,44 @@
 	import { getCaretRange } from './caret';
 
 	let props: {
+		text?: string;
 		service: AnnotatorService;
 	} = $props();
 
-	let text = $state<string | null>(null);
+	let text = $state<string | null>(props.text ?? null);
 	let textContainerElement: HTMLDivElement | null = $state(null);
 	let highlight = $state<Highlight | null>(null);
-	let showDialog = $state(false);
 	let selectedRange: AbstractRange | null = $state(null);
 	let isGenerating = $state(false);
 	let selectedAnnotation = $state<Annotation | null>(null);
 	let annotations = $state<Annotation[]>([]);
 
-	onMount(() => {
+	onMount(async () => {
 		highlight = new Highlight();
+		if (text !== null) {
+			await predict(text);
+		}
 	});
+
+	async function predict(currentText: string) {
+		isGenerating = true;
+		const predictResponse = await props.service.predict(currentText);
+		console.log({ predictResponse });
+		annotations = predictResponse.annotations;
+		isGenerating = false;
+		text = currentText;
+
+		setTimeout(() => {
+			const textNode = textContainerElement!.firstChild;
+			if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+				for (const annotation of annotations) {
+					highlight!.add(toRange(textNode, annotation));
+				}
+
+				CSS.highlights.set('custom-highlight', highlight!);
+			}
+		});
+	}
 
 	function addAnnotation(annotation: Annotation) {
 		annotations.push(annotation);
@@ -45,22 +68,7 @@
 			throw new Error();
 		}
 
-		isGenerating = true;
-		const suggestions = await props.service.predict(currentText);
-		annotations = suggestions.annotations;
-		isGenerating = false;
-		text = currentText;
-
-		setTimeout(() => {
-			const textNode = textContainerElement!.firstChild;
-			if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-				for (const annotation of annotations) {
-					highlight!.add(toRange(textNode, annotation));
-				}
-
-				CSS.highlights.set('custom-highlight', highlight!);
-			}
-		});
+		await predict(currentText);
 	}
 
 	function handleHighlight() {
@@ -128,7 +136,7 @@
 				} else {
 					selectedAnnotation = null;
 				}
-				showDialog = true;
+
 				const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;
 				dialog?.showModal();
 				return;
@@ -149,7 +157,6 @@
 	}
 
 	function closeDeleteDialog() {
-		showDialog = false;
 		selectedRange = null;
 		selectedAnnotation = null;
 		const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;

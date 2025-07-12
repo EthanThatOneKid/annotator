@@ -21,7 +21,7 @@ const patterns = ['topics', 'pronouns'] as const;
  * @see https://compromise.cool/
  */
 export class CompromiseService implements AnnotatorService {
-	async predict(text: string): Promise<PredictResponse> {
+	public async predict(text: string): Promise<PredictResponse> {
 		await new Promise((resolve) => setTimeout(resolve, 500));
 
 		const doc = nlp(text);
