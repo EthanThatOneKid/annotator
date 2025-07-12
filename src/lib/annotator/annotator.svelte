@@ -6,15 +6,16 @@
 	import { getCaretRange } from './caret';
 
 	let props: {
-		text?: string;
+		text: string;
 		service: AnnotatorService;
 	} = $props();
 
 	let text = $state<string | null>(props.text ?? null);
+	let isGenerating = $state(false);
+
 	let textContainerElement: HTMLDivElement | null = $state(null);
 	let highlight = $state<Highlight | null>(null);
 	let selectedRange: AbstractRange | null = $state(null);
-	let isGenerating = $state(false);
 	let selectedAnnotation = $state<Annotation | null>(null);
 	let annotations = $state<Annotation[]>([]);
 
@@ -29,6 +30,7 @@
 		isGenerating = true;
 		const predictResponse = await props.service.predict(currentText);
 		console.log({ predictResponse });
+
 		annotations = predictResponse.annotations;
 		isGenerating = false;
 		text = currentText;
@@ -57,22 +59,8 @@
 		CSS.highlights.set('custom-highlight', highlight!);
 	}
 
-	async function handleFormSubmit(event: Event) {
-		event.preventDefault();
-		highlight!.clear();
-
-		const form = event.target as HTMLFormElement;
-		const formData = new FormData(form);
-		const currentText = formData.get('text');
-		if (typeof currentText !== 'string') {
-			throw new Error();
-		}
-
-		await predict(currentText);
-	}
-
 	function handleHighlight() {
-		if (!textContainerElement) {
+		if (!textContainerElement || isGenerating) {
 			return;
 		}
 
@@ -99,7 +87,7 @@
 	}
 
 	function handleTextClick(event: MouseEvent) {
-		if (!textContainerElement) {
+		if (!textContainerElement || isGenerating) {
 			return;
 		}
 
@@ -153,49 +141,28 @@
 
 	function handleDeleteHighlight() {
 		removeAnnotation();
-		closeDeleteDialog();
+		closeDialog();
 	}
 
-	function closeDeleteDialog() {
+	function closeDialog() {
 		selectedRange = null;
 		selectedAnnotation = null;
 		const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;
 		dialog?.close();
 	}
-
-	function handleGoBack() {
-		text = null;
-		highlight?.clear();
-		CSS.highlights.delete('custom-highlight');
-		annotations = [];
-	}
 </script>
 
-{#if text !== null}
-	<div>
-		<div
-			bind:this={textContainerElement}
-			class="highlightable-text"
-			onclick={handleTextClick}
-			role="textbox"
-			tabindex="0"
-			onkeydown={handleTextKeyDown}
-		>
-			{text}
-		</div>
-		<button type="button" onclick={handleHighlight}>Highlight</button>
-		<button type="button" onclick={handleGoBack}>Go back</button>
-	</div>
-{:else}
-	<div class="source-input-container">
-		<form onsubmit={handleFormSubmit}>
-			<textarea rows="3" cols="40" name="text" placeholder="Type or edit text here..."
-				>{text}</textarea
-			>
-			<button type="submit">Submit</button>
-		</form>
-	</div>
-{/if}
+<div
+	bind:this={textContainerElement}
+	class="highlightable-text"
+	onclick={handleTextClick}
+	role="textbox"
+	tabindex="0"
+	onkeydown={handleTextKeyDown}
+>
+	{text}
+</div>
+<button type="button" onclick={handleHighlight}>Highlight</button>
 
 {#if isGenerating}
 	<div class="spinner-container">
@@ -204,7 +171,7 @@
 	</div>
 {/if}
 
-<dialog id="metadata-dialog" class="delete-dialog">
+<dialog id="metadata-dialog" class="metadata-dialog">
 	<h2>Annotation Metadata</h2>
 	{#if selectedRange}
 		<p>Highlighted text: <strong>{selectedRange.toString()}</strong></p>
@@ -216,7 +183,7 @@
 	{/if}
 	<div class="dialog-buttons">
 		<button type="button" onclick={handleDeleteHighlight}>Delete</button>
-		<button type="button" onclick={closeDeleteDialog}>Close</button>
+		<button type="button" onclick={closeDialog}>Close</button>
 	</div>
 </dialog>
 
@@ -231,19 +198,19 @@
 		outline: none;
 	}
 
-	.delete-dialog {
+	.metadata-dialog {
 		border: 1px solid #ccc;
 		border-radius: 8px;
 		padding: 20px;
 		max-width: 400px;
 	}
 
-	.delete-dialog h2 {
+	.metadata-dialog h2 {
 		margin-top: 0;
 		margin-bottom: 16px;
 	}
 
-	.delete-dialog p {
+	.metadata-dialog p {
 		margin-bottom: 20px;
 	}
 
