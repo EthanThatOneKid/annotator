@@ -4,4 +4,4 @@
 	// import { generateRandomAnnotations } from '$lib/annotator/random';
 </script>
 
-<Annotator generateAnnotations={(text) => generateCompromiseAnnotations(text)} />
+<Annotator generate={(text) => generateCompromiseAnnotations(text)} />

@@ -1,5 +1,5 @@
 import nlp from 'compromise';
-import type { Annotation } from './annotation';
+import type { Annotation, AnnotatorData } from './annotation';
 
 interface CompromiseCapture {
 	text: string;
@@ -12,22 +12,20 @@ interface CompromiseOffset {
 	length: number;
 }
 
-const patterns = {
-	topics: 'Topic',
-	pronouns: 'Pronoun'
-} as const;
+const patterns = ['topics', 'pronouns'] as const;
 
 /**
  * generateCompromiseAnnotations generates annotations with Compromise.
  *
  * @see https://compromise.cool/
  */
-export async function generateCompromiseAnnotations(text: string): Promise<Annotation[]> {
+export async function generateCompromiseAnnotations(text: string): Promise<AnnotatorData> {
 	await new Promise((resolve) => setTimeout(resolve, 500));
 
 	const doc = nlp(text);
 	const annotations: Annotation[] = [];
-	(Object.keys(patterns) as Array<keyof typeof patterns>).forEach((pattern) => {
+
+	patterns.forEach((pattern) => {
 		const captures: CompromiseCapture[] = doc[pattern]().json({
 			offset: true
 		});
@@ -35,11 +33,13 @@ export async function generateCompromiseAnnotations(text: string): Promise<Annot
 			annotations.push({
 				annotationId: crypto.randomUUID(),
 				rangeStart: capture.offset.start,
-				rangeEnd: capture.offset.start + capture.offset.length,
-				reason: patterns[pattern]
+				rangeEnd: capture.offset.start + capture.offset.length
 			});
 		});
 	});
 
-	return annotations;
+	return {
+		annotations,
+		resources: []
+	};
 }

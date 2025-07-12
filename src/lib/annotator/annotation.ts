@@ -1,7 +1,19 @@
 /**
- * GenerateAnnotations is a function that generates annotations from text.
+ * AnnotatorDataFn generates suggestions from text.
  */
-export type GenerateAnnotations = (text: string) => Annotation[] | Promise<Annotation[]>;
+export type AnnotatorDataFn = (text: string) => AnnotatorData | Promise<AnnotatorData>;
+
+export interface AnnotatorData {
+	annotations: Annotation[];
+	resources: Resource[];
+}
+
+export interface Resource {
+	resourceId: string;
+	resourceType?: string;
+	resourceLabel?: string;
+	resourceDescription?: string;
+}
 
 /**
  * Annotation is a resource-oriented range of text within some source text.
@@ -10,9 +22,12 @@ export interface Annotation {
 	annotationId: string;
 	rangeStart: number;
 	rangeEnd: number;
-	reason?: string;
+	predictions?: Prediction[];
+}
 
-	// TODO: Relate to existing resources or create new ones.
+export interface Prediction {
+	resourceId: string;
+	score: string;
 }
 
 /**

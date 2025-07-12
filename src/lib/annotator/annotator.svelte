@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { Annotation, GenerateAnnotations } from './annotation';
+	import type { Annotation, AnnotatorDataFn } from './annotation';
 	import { toRange } from './annotation';
 	import { getCaretRange } from './caret';
 
 	let props: {
-		generateAnnotations: GenerateAnnotations;
+		generate: AnnotatorDataFn;
 	} = $props();
 
 	let text = $state<string | null>(null);
@@ -45,7 +45,8 @@
 		}
 
 		isGenerating = true;
-		annotations = await props.generateAnnotations(currentText);
+		const suggestions = await props.generate(currentText);
+		annotations = suggestions.annotations;
 		isGenerating = false;
 		text = currentText;
 
