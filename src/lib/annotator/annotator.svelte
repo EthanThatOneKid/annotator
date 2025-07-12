@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { AnnotatorService } from './services/service';
-	import type { Annotation } from './annotation';
+	import type { Annotation, Resource } from './annotation';
 	import { toRange } from './annotation';
 	import { getCaretRange } from './caret';
 
@@ -12,12 +12,12 @@
 
 	let text = $state<string | null>(props.text ?? null);
 	let isGenerating = $state(false);
-
-	let textContainerElement: HTMLDivElement | null = $state(null);
+	let textContainerElement = $state<HTMLDivElement | null>(null);
 	let highlight = $state<Highlight | null>(null);
-	let selectedRange: AbstractRange | null = $state(null);
+	let selectedRange = $state<AbstractRange | null>(null);
 	let selectedAnnotation = $state<Annotation | null>(null);
 	let annotations = $state<Annotation[]>([]);
+	let resources = $state<Resource[]>([]);
 
 	onMount(async () => {
 		highlight = new Highlight();
@@ -32,6 +32,7 @@
 		console.log({ predictResponse });
 
 		annotations = predictResponse.annotations;
+		resources = predictResponse.resources;
 		isGenerating = false;
 		text = currentText;
 
@@ -139,7 +140,7 @@
 		}
 	}
 
-	function handleDeleteHighlight() {
+	function handleDismissHighlight() {
 		removeAnnotation();
 		closeDialog();
 	}
@@ -182,7 +183,7 @@
 		{/if}
 	{/if}
 	<div class="dialog-buttons">
-		<button type="button" onclick={handleDeleteHighlight}>Delete</button>
+		<button type="button" onclick={handleDismissHighlight}>Dismiss</button>
 		<button type="button" onclick={closeDialog}>Close</button>
 	</div>
 </dialog>
