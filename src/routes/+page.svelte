@@ -1,7 +1,8 @@
 <script lang="ts">
 	import Annotator from '$lib/annotator/annotator.svelte';
-	import { generateCompromiseAnnotations } from '$lib/annotator/compromise';
-	// import { generateRandomAnnotations } from '$lib/annotator/random';
+	import { CompromiseService } from '$lib/annotator/services/compromise';
+
+	const service = new CompromiseService();
 </script>
 
-<Annotator generate={(text) => generateCompromiseAnnotations(text)} />
+<Annotator {service} />

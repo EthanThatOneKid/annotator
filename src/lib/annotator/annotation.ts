@@ -1,15 +1,5 @@
-/**
- * AnnotatorDataFn generates suggestions from text.
- */
-export type AnnotatorDataFn = (text: string) => AnnotatorData | Promise<AnnotatorData>;
-
-export interface AnnotatorData {
-	annotations: Annotation[];
-	resources: Resource[];
-}
-
 export interface Resource {
-	resourceId: string;
+	resourceId?: string;
 	resourceType?: string;
 	resourceLabel?: string;
 	resourceDescription?: string;
@@ -22,12 +12,13 @@ export interface Annotation {
 	annotationId: string;
 	rangeStart: number;
 	rangeEnd: number;
+	resourceId?: string;
 	predictions?: Prediction[];
 }
 
 export interface Prediction {
 	resourceId: string;
-	score: string;
+	confidence: number;
 }
 
 /**

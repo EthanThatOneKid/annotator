@@ -1,14 +1,22 @@
-import type { Annotation } from './annotation';
+import type { AnnotatorService, PredictResponse } from './service';
 
 /**
- * generateRandomAnnotations generates random annotations.
+ * RandomService generates random annotations.
  */
-export function generateRandomAnnotations(text: string, k = 1): Annotation[] {
-	return randomRanges(text, k).map(([start, end], i) => ({
-		annotationId: `annotation-${i}`,
-		rangeStart: start,
-		rangeEnd: end
-	}));
+export class RandomService implements AnnotatorService {
+	public constructor(private readonly k: number = 1) {}
+
+	public predict(text: string): PredictResponse {
+		const annotations = randomRanges(text, this.k).map(([start, end], i) => ({
+			annotationId: `annotation-${i}`,
+			rangeStart: start,
+			rangeEnd: end
+		}));
+		return {
+			annotations,
+			resources: []
+		};
+	}
 }
 
 function randomRanges(text: string, k = 1): Array<[number, number]> {
