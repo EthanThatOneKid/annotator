@@ -19,7 +19,7 @@
 			throw new Error();
 		}
 
-		const data = await service.predict(currentText);
+		const data = await service.annotate(currentText);
 		text = currentText;
 		annotations = data.annotations;
 		resources = data.resources;

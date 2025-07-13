@@ -1,5 +1,5 @@
 import type { Annotation } from '$lib/annotator/annotation';
-import type { AnnotatorService, PredictResponse } from './service';
+import type { AnnotatorService, AnnotateResponse, PredictResponse } from './service';
 
 /**
  * RandomService generates random annotations.
@@ -7,7 +7,7 @@ import type { AnnotatorService, PredictResponse } from './service';
 export class RandomService implements AnnotatorService {
 	public constructor(private readonly k: number = 1) {}
 
-	public predict(text: string): PredictResponse {
+	public annotate(text: string): AnnotateResponse {
 		const annotations = randomRanges(text, this.k).map(([start, end]): Annotation => {
 			const annotationId = crypto.randomUUID();
 			return {
@@ -18,6 +18,13 @@ export class RandomService implements AnnotatorService {
 		});
 		return {
 			annotations,
+			resources: []
+		};
+	}
+
+	public predict(): PredictResponse {
+		return {
+			predictions: [],
 			resources: []
 		};
 	}

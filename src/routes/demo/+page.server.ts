@@ -1,10 +1,14 @@
 import type { PageServerLoad } from './$types';
-import type { AnnotatorService, PredictResponse } from '$lib/annotator/services/service';
+import type {
+	AnnotatorService,
+	AnnotateResponse,
+	PredictResponse
+} from '$lib/annotator/services/service';
 
 class CafeService implements AnnotatorService {
 	public static readonly text = 'Met up with Angel at The Lost Bean cafe.';
 
-	public async predict(text: string): Promise<PredictResponse> {
+	public async annotate(text: string): Promise<AnnotateResponse> {
 		console.assert(text === CafeService.text, 'CafeService received unexpected text input');
 		return {
 			annotations: [
@@ -62,12 +66,19 @@ class CafeService implements AnnotatorService {
 			]
 		};
 	}
+
+	public predict(): PredictResponse {
+		return {
+			predictions: [],
+			resources: []
+		};
+	}
 }
 
 const service = new CafeService();
 
 export const load: PageServerLoad = async () => {
-	const data = await service.predict(CafeService.text);
+	const data = await service.annotate(CafeService.text);
 	return {
 		text: CafeService.text,
 		annotations: data.annotations,
