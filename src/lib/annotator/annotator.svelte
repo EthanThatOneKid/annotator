@@ -13,12 +13,13 @@
 	} = $props();
 
 	let isGenerating = $state(false);
+	let isSelecting = $state(false);
 	let textContainerElement = $state<HTMLDivElement | null>(null);
 	let dialogElement = $state<HTMLDialogElement | null>(null);
 	let highlight = $state<Highlight | null>(null);
 	let caretRange = $state<Range | null>(null);
 	let annotations = $state<Annotation[]>(props.annotations);
-	let resources = $state<Resource[]>(props.resources);
+	// let resources = $state<Resource[]>(props.resources);
 	let ranges = $state<Map<string, Range>>(new Map());
 	let selectedAnnotations = $state<Annotation[]>([]);
 
@@ -33,6 +34,9 @@
 		}
 
 		CSS.highlights.set(HIGHLIGHT_KEY, highlight!);
+
+		// Add selection change listener.
+		document.addEventListener('selectionchange', handleSelectionChange);
 	});
 
 	function addAnnotation(annotation: Annotation) {
@@ -63,35 +67,45 @@
 	}
 
 	function handleHighlight() {
-		if (!textContainerElement || isGenerating) {
-			return;
-		}
-
 		const selection = window.getSelection();
-		if (!selection || selection.rangeCount === 0) {
+		if (!isValidSelection(selection)) {
 			alert('Please select some text before highlighting.');
 			return;
 		}
 
-		const range = selection.getRangeAt(0);
-		if (
-			!textContainerElement.contains(range.startContainer) ||
-			!textContainerElement.contains(range.endContainer)
-		) {
-			alert('Please select from the featured text.');
-			return;
-		}
-
+		const range = selection!.getRangeAt(0);
 		const annotationId = crypto.randomUUID();
 		addAnnotation({
 			annotationId,
 			start: range.startOffset,
 			end: range.endOffset
 		});
+
+		// Clear the selection after highlighting.
+		selection!.removeAllRanges();
+		isSelecting = false;
+	}
+
+	function isValidSelection(selection: Selection | null): boolean {
+		if (!selection || selection.rangeCount === 0) {
+			return false;
+		}
+
+		const range = selection.getRangeAt(0);
+		return !!(
+			textContainerElement &&
+			textContainerElement.contains(range.startContainer) &&
+			textContainerElement.contains(range.endContainer) &&
+			range.startOffset !== range.endOffset
+		);
+	}
+
+	function handleSelectionChange() {
+		isSelecting = isValidSelection(window.getSelection());
 	}
 
 	function handleTextClick(event: MouseEvent) {
-		if (!textContainerElement || isGenerating) {
+		if (!textContainerElement || isGenerating || isSelecting) {
 			return;
 		}
 
@@ -146,22 +160,25 @@
 >
 	{props.text}
 </div>
-<button type="button" onclick={handleHighlight}>Highlight</button>
+
+{#if isSelecting}
+	<button type="button" onclick={handleHighlight}>Highlight</button>
+{/if}
 
 {#if isGenerating}
 	<div class="spinner-container">
 		<div class="spinner"></div>
-		<span>Loading annotations...</span>
+		<span>Loading annotations&hellip;</span>
 	</div>
 {/if}
 
-<dialog id="metadata-dialog" class="metadata-dialog" bind:this={dialogElement}>
+<dialog id="metadata-dialog" class="metadata-dialog" bind:this={dialogElement} closedby="any">
 	{#each selectedAnnotations as annotation (annotation.annotationId)}
 		<div class="annotation-metadata">
 			<ul>
 				<li>Annotation ID: <strong>{annotation.annotationId}</strong></li>
 				<li>
-					Range: <strong>{annotation.start}</strong>&mdash;<strong>{annotation.end}</strong>
+					Range: <strong>{annotation.start}</strong>..<strong>{annotation.end}</strong>
 				</li>
 				<li>Text: <strong>{props.text.slice(annotation.start, annotation.end)}</strong></li>
 			</ul>
