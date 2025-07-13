@@ -34,8 +34,8 @@ export class CompromiseService implements AnnotatorService {
 			captures.forEach((capture) => {
 				annotations.push({
 					annotationId: crypto.randomUUID(),
-					rangeStart: capture.offset.start,
-					rangeEnd: capture.offset.start + capture.offset.length
+					start: capture.offset.start,
+					end: capture.offset.start + capture.offset.length
 				});
 			});
 		});

@@ -1,8 +1,8 @@
 <script lang="ts">
+	import type { PageProps } from './$types';
 	import Annotator from '$lib/annotator/annotator.svelte';
-	import { CompromiseService } from '$lib/annotator/services/compromise';
 
-	const service = new CompromiseService();
+	let { data }: PageProps = $props();
 </script>
 
-<Annotator {service} text="My name is Ethan!" />
+<Annotator {...data} />

@@ -1,63 +1,65 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { AnnotatorService } from './services/service';
 	import type { Annotation, Resource } from './annotation';
-	import { toRange } from './annotation';
+	import { intersection } from './annotation';
 	import { getCaretRange } from './caret';
+
+	const HIGHLIGHT_KEY = 'custom-highlight';
 
 	let props: {
 		text: string;
-		service: AnnotatorService;
+		annotations: Annotation[];
+		resources: Resource[];
 	} = $props();
 
-	let text = $state<string | null>(props.text ?? null);
 	let isGenerating = $state(false);
 	let textContainerElement = $state<HTMLDivElement | null>(null);
+	let dialogElement = $state<HTMLDialogElement | null>(null);
 	let highlight = $state<Highlight | null>(null);
-	let selectedRange = $state<AbstractRange | null>(null);
-	let selectedAnnotation = $state<Annotation | null>(null);
-	let annotations = $state<Annotation[]>([]);
-	let resources = $state<Resource[]>([]);
+	let caretRange = $state<Range | null>(null);
+	let annotations = $state<Annotation[]>(props.annotations);
+	let resources = $state<Resource[]>(props.resources);
+	let ranges = $state<Map<string, Range>>(new Map());
+	let selectedAnnotations = $state<Annotation[]>([]);
 
 	onMount(async () => {
 		highlight = new Highlight();
-		if (text !== null) {
-			await predict(text);
+		for (const annotation of annotations) {
+			const range = new Range();
+			range.setStart(textContainerElement!.firstChild!, annotation.start);
+			range.setEnd(textContainerElement!.firstChild!, annotation.end);
+			ranges.set(annotation.annotationId, range);
+			highlight!.add(range);
 		}
+
+		CSS.highlights.set(HIGHLIGHT_KEY, highlight!);
 	});
 
-	async function predict(currentText: string) {
-		isGenerating = true;
-		const predictResponse = await props.service.predict(currentText);
-		console.log({ predictResponse });
-
-		annotations = predictResponse.annotations;
-		resources = predictResponse.resources;
-		isGenerating = false;
-		text = currentText;
-
-		setTimeout(() => {
-			const textNode = textContainerElement!.firstChild;
-			if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-				for (const annotation of annotations) {
-					highlight!.add(toRange(textNode, annotation));
-				}
-
-				CSS.highlights.set('custom-highlight', highlight!);
-			}
-		});
-	}
-
 	function addAnnotation(annotation: Annotation) {
+		const range = new Range();
+		range.setStart(textContainerElement!.firstChild!, annotation.start);
+		range.setEnd(textContainerElement!.firstChild!, annotation.end);
+		ranges.set(annotation.annotationId, range);
 		annotations.push(annotation);
-		highlight!.add(toRange(textContainerElement!.firstChild!, annotation));
-		CSS.highlights.set('custom-highlight', highlight!);
+		highlight!.add(range);
+		CSS.highlights.set(HIGHLIGHT_KEY, highlight!);
 	}
 
-	function removeAnnotation() {
-		annotations = annotations.filter((a) => a.annotationId !== selectedAnnotation!.annotationId);
-		highlight!.delete(selectedRange!);
-		CSS.highlights.set('custom-highlight', highlight!);
+	function removeAnnotation(annotationId: string) {
+		const { removed, remaining } = Object.groupBy(annotations, (a) =>
+			a.annotationId === annotationId ? 'removed' : 'remaining'
+		);
+		if (!removed || removed.length === 0) {
+			return;
+		}
+
+		annotations = remaining ?? [];
+		removed.forEach((a) => {
+			highlight!.delete(ranges.get(a.annotationId)!);
+			ranges.delete(a.annotationId);
+		});
+
+		CSS.highlights.set(HIGHLIGHT_KEY, highlight!);
 	}
 
 	function handleHighlight() {
@@ -80,10 +82,11 @@
 			return;
 		}
 
+		const annotationId = crypto.randomUUID();
 		addAnnotation({
-			annotationId: crypto.randomUUID(),
-			rangeStart: range.startOffset,
-			rangeEnd: range.endOffset
+			annotationId,
+			start: range.startOffset,
+			end: range.endOffset
 		});
 	}
 
@@ -98,39 +101,21 @@
 		}
 
 		// Get the caret position from the click.
-		const caretRange = getCaretRange(event.clientX, event.clientY);
+		caretRange = getCaretRange(event.clientX, event.clientY);
 		if (!caretRange) {
 			return;
 		}
 
-		// Check all highlights for a match.
-		for (const r of highlight!) {
-			if (
-				r.startContainer === caretRange.startContainer &&
-				r.startOffset <= caretRange.startOffset &&
-				r.endContainer === caretRange.endContainer &&
-				r.endOffset >= caretRange.endOffset
-			) {
-				selectedRange = r;
-				// Try to find the corresponding annotation
-				if (
-					textContainerElement &&
-					textContainerElement.firstChild &&
-					textContainerElement.firstChild.nodeType === Node.TEXT_NODE &&
-					Array.isArray(annotations)
-				) {
-					selectedAnnotation =
-						annotations.find((a) => a.rangeStart === r.startOffset && a.rangeEnd === r.endOffset) ||
-						null;
-				} else {
-					selectedAnnotation = null;
-				}
-
-				const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;
-				dialog?.showModal();
-				return;
-			}
+		selectedAnnotations = intersection(annotations, caretRange);
+		if (selectedAnnotations.length === 0) {
+			// No annotations at the caret position, so close the dialog.
+			closeDialog();
+			return;
 		}
+
+		// Open the dialog.
+		dialogElement?.showModal();
+		return;
 	}
 
 	function handleTextKeyDown(event: KeyboardEvent) {
@@ -140,16 +125,14 @@
 		}
 	}
 
-	function handleDismissHighlight() {
-		removeAnnotation();
+	function handleDismissAnnotation(annotationId: string) {
+		removeAnnotation(annotationId);
 		closeDialog();
 	}
 
 	function closeDialog() {
-		selectedRange = null;
-		selectedAnnotation = null;
-		const dialog = document.getElementById('metadata-dialog') as HTMLDialogElement;
-		dialog?.close();
+		caretRange = null;
+		dialogElement?.close();
 	}
 </script>
 
@@ -161,7 +144,7 @@
 	tabindex="0"
 	onkeydown={handleTextKeyDown}
 >
-	{text}
+	{props.text}
 </div>
 <button type="button" onclick={handleHighlight}>Highlight</button>
 
@@ -172,20 +155,23 @@
 	</div>
 {/if}
 
-<dialog id="metadata-dialog" class="metadata-dialog">
-	<h2>Annotation Metadata</h2>
-	{#if selectedRange}
-		<p>Highlighted text: <strong>{selectedRange.toString()}</strong></p>
-		{#if selectedAnnotation}
-			<p>Annotation ID: <strong>{selectedAnnotation.annotationId}</strong></p>
-			<p>Range Start: <strong>{selectedAnnotation.rangeStart}</strong></p>
-			<p>Range End: <strong>{selectedAnnotation.rangeEnd}</strong></p>
-		{/if}
-	{/if}
-	<div class="dialog-buttons">
-		<button type="button" onclick={handleDismissHighlight}>Dismiss</button>
-		<button type="button" onclick={closeDialog}>Close</button>
-	</div>
+<dialog id="metadata-dialog" class="metadata-dialog" bind:this={dialogElement}>
+	{#each selectedAnnotations as annotation (annotation.annotationId)}
+		<div class="annotation-metadata">
+			<ul>
+				<li>Annotation ID: <strong>{annotation.annotationId}</strong></li>
+				<li>
+					Range: <strong>{annotation.start}</strong>&mdash;<strong>{annotation.end}</strong>
+				</li>
+				<li>Text: <strong>{props.text.slice(annotation.start, annotation.end)}</strong></li>
+			</ul>
+			<button type="button" onclick={() => handleDismissAnnotation(annotation.annotationId)}
+				>Dismiss</button
+			>
+		</div>
+	{/each}
+
+	<button type="button" onclick={() => closeDialog()}>Close</button>
 </dialog>
 
 <style>
@@ -204,38 +190,6 @@
 		border-radius: 8px;
 		padding: 20px;
 		max-width: 400px;
-	}
-
-	.metadata-dialog h2 {
-		margin-top: 0;
-		margin-bottom: 16px;
-	}
-
-	.metadata-dialog p {
-		margin-bottom: 20px;
-	}
-
-	.dialog-buttons {
-		display: flex;
-		gap: 10px;
-		justify-content: flex-end;
-	}
-
-	.dialog-buttons button {
-		padding: 8px 16px;
-		border: 1px solid #ccc;
-		border-radius: 4px;
-		cursor: pointer;
-	}
-
-	.dialog-buttons button:first-child {
-		background-color: #dc3545;
-		color: white;
-		border-color: #dc3545;
-	}
-
-	.dialog-buttons button:first-child:hover {
-		background-color: #c82333;
 	}
 
 	.spinner-container {
@@ -258,6 +212,7 @@
 		0% {
 			transform: rotate(0deg);
 		}
+
 		100% {
 			transform: rotate(360deg);
 		}

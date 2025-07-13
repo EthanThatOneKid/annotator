@@ -1,10 +1,13 @@
 <script lang="ts">
+	import type { Annotation, Resource } from '$lib/annotator/annotation';
 	import { CompromiseService } from '$lib/annotator/services/compromise';
 	import Annotator from '$lib/annotator/annotator.svelte';
 
-	let text = $state<string | null>(null);
-
 	const service = new CompromiseService();
+
+	let text = $state<string | null>(null);
+	let annotations = $state<Annotation[]>([]);
+	let resources = $state<Resource[]>([]);
 
 	async function handleFormSubmit(event: Event) {
 		event.preventDefault();
@@ -16,7 +19,10 @@
 			throw new Error();
 		}
 
+		const data = await service.predict(currentText);
 		text = currentText;
+		annotations = data.annotations;
+		resources = data.resources;
 	}
 
 	function handleGoBack() {
@@ -25,7 +31,7 @@
 </script>
 
 {#if text !== null}
-	<Annotator {service} {text} />
+	<Annotator {text} {annotations} {resources} />
 	<button type="button" onclick={handleGoBack}>Go back</button>
 {:else}
 	<div class="source-input-container">

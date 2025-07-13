@@ -1,3 +1,4 @@
+import type { Annotation } from '$lib/annotator/annotation';
 import type { AnnotatorService, PredictResponse } from './service';
 
 /**
@@ -7,11 +8,14 @@ export class RandomService implements AnnotatorService {
 	public constructor(private readonly k: number = 1) {}
 
 	public predict(text: string): PredictResponse {
-		const annotations = randomRanges(text, this.k).map(([start, end], i) => ({
-			annotationId: `annotation-${i}`,
-			rangeStart: start,
-			rangeEnd: end
-		}));
+		const annotations = randomRanges(text, this.k).map(([start, end]): Annotation => {
+			const annotationId = crypto.randomUUID();
+			return {
+				annotationId,
+				start,
+				end
+			};
+		});
 		return {
 			annotations,
 			resources: []

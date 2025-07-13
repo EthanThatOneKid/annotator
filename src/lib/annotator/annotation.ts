@@ -10,8 +10,8 @@ export interface Resource {
  */
 export interface Annotation {
 	annotationId: string;
-	rangeStart: number;
-	rangeEnd: number;
+	start: number;
+	end: number;
 	resourceId?: string;
 	predictions?: Prediction[];
 }
@@ -22,18 +22,12 @@ export interface Prediction {
 }
 
 /**
- * toRange converts an Annotation to a highlightable Range of text.
+ * intersection returns a list of annotations that intersect with the given range.
  */
-export function toRange(node: Node, annotation: Annotation) {
-	if (node.nodeType !== Node.TEXT_NODE) {
-		throw new Error('toRange: node must be a text node');
+export function intersection(annotations: Annotation[], range: Range | null): Annotation[] {
+	if (range === null) {
+		return [];
 	}
 
-	const textLength = (node.textContent ?? '').length;
-	const start = Math.max(0, Math.min(annotation.rangeStart, textLength));
-	const end = Math.max(start, Math.min(annotation.rangeEnd, textLength));
-	const range = new Range();
-	range.setStart(node, start);
-	range.setEnd(node, end);
-	return range;
+	return annotations.filter((a) => a.start <= range.startOffset && a.end >= range.endOffset) ?? [];
 }
