@@ -1,5 +1,9 @@
-import type { Annotation } from '$lib/annotator/annotation';
-import type { AnnotatorService, AnnotateResponse, PredictResponse } from './service';
+import type { Annotation } from '$lib/services/annotator/annotator';
+import type {
+	AnnotateResponse,
+	AnnotatorService,
+	PredictResponse
+} from '$lib/services/annotator/annotator';
 
 /**
  * RandomService generates random annotations.
@@ -7,8 +11,8 @@ import type { AnnotatorService, AnnotateResponse, PredictResponse } from './serv
 export class RandomService implements AnnotatorService {
 	public constructor(private readonly k: number = 1) {}
 
-	public annotate(text: string): AnnotateResponse {
-		const annotations = randomRanges(text, this.k).map(([start, end]): Annotation => {
+	public annotate(textContent: string): AnnotateResponse {
+		const annotations = randomRanges(textContent, this.k).map(([start, end]): Annotation => {
 			const annotationId = crypto.randomUUID();
 			return {
 				annotationId,
@@ -30,18 +34,18 @@ export class RandomService implements AnnotatorService {
 	}
 }
 
-function randomRanges(text: string, k = 1): Array<[number, number]> {
+function randomRanges(textContent: string, k = 1): Array<[number, number]> {
 	const result: Array<[number, number]> = [];
-	const maxRanges = Math.min(k, text.length); // can't have more ranges than text length.
+	const maxRanges = Math.min(k, textContent.length); // can't have more ranges than text length.
 	const maxAttempts = 1000;
 	let attempts = 0;
 
 	while (result.length < maxRanges && attempts < maxAttempts) {
-		let start = Math.floor(Math.random() * text.length);
-		let end = Math.floor(Math.random() * text.length);
+		let start = Math.floor(Math.random() * textContent.length);
+		let end = Math.floor(Math.random() * textContent.length);
 		if (start === end) {
 			// ensure at least length 1
-			end = Math.min(start + 1, text.length);
+			end = Math.min(start + 1, textContent.length);
 			start = Math.max(0, start - 1);
 		}
 

@@ -1,43 +1,40 @@
 <script lang="ts">
-	import type { Annotation, Resource } from '$lib/annotator/annotation';
-	import { CompromiseService } from '$lib/annotator/services/compromise';
-	import Annotator from '$lib/annotator/annotator.svelte';
+	import type { AnnotateResponse } from '$lib/services/annotator/annotator';
+	import { CompromiseService } from '$lib/services/annotator/compromise/compromise';
+	import Annotator from '$lib/components/annotator/annotator.svelte';
 
 	const service = new CompromiseService();
 
-	let text = $state<string | null>(null);
-	let annotations = $state<Annotation[]>([]);
-	let resources = $state<Resource[]>([]);
+	let textContent = $state<string | null>(null);
+	let generated = $state<AnnotateResponse | null>(null);
 
 	async function handleFormSubmit(event: Event) {
 		event.preventDefault();
 
 		const form = event.target as HTMLFormElement;
 		const formData = new FormData(form);
-		const currentText = formData.get('text');
+		const currentText = formData.get('textContent');
 		if (typeof currentText !== 'string') {
-			throw new Error();
+			throw new Error('Text must be a string');
 		}
 
-		const data = await service.annotate(currentText);
-		text = currentText;
-		annotations = data.annotations;
-		resources = data.resources;
+		generated = await service.annotate(currentText);
+		textContent = currentText;
 	}
 
 	function handleGoBack() {
-		text = null;
+		textContent = null;
 	}
 </script>
 
-{#if text !== null}
-	<Annotator {text} {annotations} {resources} />
+{#if textContent !== null && generated !== null}
+	<Annotator {textContent} {generated} {service} />
 	<button type="button" onclick={handleGoBack}>Go back</button>
 {:else}
 	<div class="source-input-container">
 		<form onsubmit={handleFormSubmit}>
-			<textarea rows="3" cols="40" name="text" placeholder="Type or edit text here..."
-				>{text}</textarea
+			<textarea rows="4" cols="40" name="textContent" placeholder="Type or edit text here..."
+				>{textContent}</textarea
 			>
 			<button type="submit">Submit</button>
 		</form>

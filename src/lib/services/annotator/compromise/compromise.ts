@@ -1,6 +1,10 @@
 import nlp from 'compromise';
-import type { Annotation } from '$lib/annotator/annotation';
-import type { AnnotatorService, AnnotateResponse, PredictResponse } from './service';
+import type {
+	AnnotateResponse,
+	Annotation,
+	AnnotatorService,
+	PredictResponse
+} from '$lib/services/annotator/annotator';
 
 interface CompromiseCapture {
 	text: string;
@@ -21,10 +25,10 @@ const patterns = ['topics', 'pronouns'] as const;
  * @see https://compromise.cool/
  */
 export class CompromiseService implements AnnotatorService {
-	public async annotate(text: string): Promise<AnnotateResponse> {
+	public async annotate(textContent: string): Promise<AnnotateResponse> {
 		await new Promise((resolve) => setTimeout(resolve, 500));
 
-		const doc = nlp(text);
+		const doc = nlp(textContent);
 		const annotations: Annotation[] = [];
 
 		patterns.forEach((pattern) => {

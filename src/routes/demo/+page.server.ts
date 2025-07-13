@@ -1,87 +1,94 @@
 import type { PageServerLoad } from './$types';
 import type {
-	AnnotatorService,
 	AnnotateResponse,
-	PredictResponse
-} from '$lib/annotator/services/service';
+	AnnotatorService,
+	PredictResponse,
+	Resource
+} from '$lib/services/annotator/annotator';
 
 class CafeService implements AnnotatorService {
-	public static readonly text = 'Met up with Angel at The Lost Bean cafe.';
+	public static readonly textContent = 'Met up with Angel at The Lost Bean cafe.';
+	public static readonly resources: Record<string, Resource> = {
+		'person-1': {
+			resourceId: 'person-1',
+			resourceLabel: 'Angel'
+		},
+		'person-2': {
+			resourceId: 'person-2',
+			resourceLabel: 'John'
+		},
+		'person-3': {
+			resourceId: 'person-3',
+			resourceLabel: 'Ethan'
+		},
+		'cafe-1': {
+			resourceId: 'cafe-1',
+			resourceLabel: 'The Lost Bean'
+		},
+		'cafe-2': {
+			resourceId: 'cafe-2',
+			resourceLabel: 'Play Coffee'
+		}
+	};
+	public static readonly responses: Record<string, PredictResponse> = {
+		Angel: {
+			resources: [
+				CafeService.resources['person-1'],
+				CafeService.resources['person-2'],
+				CafeService.resources['person-3']
+			],
+			predictions: [
+				{ resourceId: 'person-1', confidence: 0.8 },
+				{ resourceId: 'person-2', confidence: 0.6 },
+				{ resourceId: 'person-3', confidence: 0.4 }
+			]
+		},
+		'The Lost Bean': {
+			resources: [CafeService.resources['cafe-1'], CafeService.resources['cafe-2']],
+			predictions: [
+				{ resourceId: 'cafe-1', confidence: 0.9 },
+				{ resourceId: 'cafe-2', confidence: 0.7 }
+			]
+		}
+	};
 
-	public async annotate(text: string): Promise<AnnotateResponse> {
-		console.assert(text === CafeService.text, 'CafeService received unexpected text input');
+	public async annotate(textContent: string): Promise<AnnotateResponse> {
+		console.assert(
+			textContent === CafeService.textContent,
+			'CafeService received unexpected text input'
+		);
 		return {
 			annotations: [
-				{
-					annotationId: 'demo-annotation-1',
-					start: 0,
-					end: 40,
-					predictions: [{ resourceId: 'event-1', confidence: 0.9 }]
-				},
 				{
 					annotationId: 'demo-annotation-2',
 					start: 12,
 					end: 17,
-					predictions: [
-						{ resourceId: 'person-1', confidence: 0.8 },
-						{ resourceId: 'person-2', confidence: 0.6 },
-						{ resourceId: 'person-3', confidence: 0.4 }
-					]
+					predictions: CafeService.responses['Angel'].predictions
 				},
 				{
 					annotationId: 'demo-annotation-3',
 					start: 21,
 					end: 40,
-					predictions: [
-						{ resourceId: 'cafe-1', confidence: 0.9 },
-						{ resourceId: 'cafe-2', confidence: 0.7 }
-					]
+					predictions: CafeService.responses['The Lost Bean'].predictions
 				}
 			],
-			resources: [
-				{
-					resourceId: 'person-1',
-					resourceLabel: 'Angel'
-				},
-				{
-					resourceId: 'person-2',
-					resourceLabel: 'John'
-				},
-				{
-					resourceId: 'person-3',
-					resourceLabel: 'Ethan'
-				},
-				{
-					resourceId: 'cafe-1',
-					resourceLabel: 'The Lost Bean'
-				},
-				{
-					resourceId: 'cafe-2',
-					resourceLabel: 'Play Coffee'
-				},
-				{
-					resourceId: 'event-1',
-					resourceLabel: 'Ethan:Angel coffee chat'
-				}
-			]
+			resources: Object.values(CafeService.resources)
 		};
 	}
 
-	public predict(): PredictResponse {
-		return {
-			predictions: [],
-			resources: []
-		};
+	public predict(textContent: string): PredictResponse {
+		return (
+			CafeService.responses[textContent] ?? {
+				predictions: [],
+				resources: []
+			}
+		);
 	}
 }
 
 const service = new CafeService();
 
 export const load: PageServerLoad = async () => {
-	const data = await service.annotate(CafeService.text);
-	return {
-		text: CafeService.text,
-		annotations: data.annotations,
-		resources: data.resources
-	};
+	const generated = await service.annotate(CafeService.textContent);
+	return { textContent: CafeService.textContent, generated };
 };

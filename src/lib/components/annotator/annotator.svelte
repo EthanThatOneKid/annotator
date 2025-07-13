@@ -1,39 +1,52 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { Annotation, Resource } from './annotation';
-	import { intersection } from './annotation';
+	import type {
+		Annotation,
+		Resource,
+		AnnotatorService,
+		AnnotateResponse
+	} from '$lib/services/annotator/annotator';
+	import { intersection } from '$lib/services/annotator/annotator';
 	import { getCaretRange } from './caret';
 
-	const HIGHLIGHT_KEY = 'custom-highlight';
-
-	let props: {
-		text: string;
-		annotations: Annotation[];
-		resources: Resource[];
+	let {
+		textContent,
+		generated,
+		service,
+		highlightKey = 'custom-highlight'
+	}: {
+		textContent: string;
+		generated: AnnotateResponse;
+		service: AnnotatorService;
+		highlightKey?: string;
 	} = $props();
 
 	let isGenerating = $state(false);
 	let isSelecting = $state(false);
-	let textContainerElement = $state<HTMLDivElement | null>(null);
-	let dialogElement = $state<HTMLDialogElement | null>(null);
 	let highlight = $state<Highlight | null>(null);
 	let caretRange = $state<Range | null>(null);
-	let annotations = $state<Annotation[]>(props.annotations);
-	let resources = $state<Resource[]>(props.resources);
-	let ranges = $state<Map<string, Range>>(new Map());
-	let selectedAnnotations = $state<Annotation[]>([]);
+	let dialogElement = $state<HTMLDialogElement | null>(null);
+	let textContainerElement = $state<HTMLDivElement | null>(null);
+	let annotatedRanges = $state(new Map<string, Range>());
+	let selectedAnnotations = $state(new Set<Annotation>());
+	let annotations = $state(
+		new Map<string, Annotation>(generated.annotations.map((a) => [a.annotationId, a]))
+	);
+	let resources = $state(
+		new Map<string, Resource>(generated.resources.map((r) => [r.resourceId, r]))
+	);
 
 	onMount(async () => {
 		highlight = new Highlight();
-		for (const annotation of annotations) {
+		annotations.forEach((annotation) => {
 			const range = new Range();
 			range.setStart(textContainerElement!.firstChild!, annotation.start);
 			range.setEnd(textContainerElement!.firstChild!, annotation.end);
-			ranges.set(annotation.annotationId, range);
+			annotatedRanges.set(annotation.annotationId, range);
 			highlight!.add(range);
-		}
+		});
 
-		CSS.highlights.set(HIGHLIGHT_KEY, highlight!);
+		CSS.highlights.set(highlightKey, highlight!);
 
 		// Add selection change listener.
 		document.addEventListener('selectionchange', handleSelectionChange);
@@ -43,30 +56,26 @@
 		const range = new Range();
 		range.setStart(textContainerElement!.firstChild!, annotation.start);
 		range.setEnd(textContainerElement!.firstChild!, annotation.end);
-		ranges.set(annotation.annotationId, range);
-		annotations.push(annotation);
+		annotatedRanges.set(annotation.annotationId, range);
+		annotations.set(annotation.annotationId, annotation);
 		highlight!.add(range);
-		CSS.highlights.set(HIGHLIGHT_KEY, highlight!);
+		CSS.highlights.set(highlightKey, highlight!);
 	}
 
 	function removeAnnotation(annotationId: string) {
-		const { removed, remaining } = Object.groupBy(annotations, (a) =>
-			a.annotationId === annotationId ? 'removed' : 'remaining'
-		);
-		if (!removed || removed.length === 0) {
+		const range = annotatedRanges.get(annotationId);
+		if (!range) {
 			return;
 		}
 
-		annotations = remaining ?? [];
-		removed.forEach((a) => {
-			highlight!.delete(ranges.get(a.annotationId)!);
-			ranges.delete(a.annotationId);
-		});
+		highlight!.delete(range);
+		annotatedRanges.delete(annotationId);
+		annotations.delete(annotationId);
 
-		CSS.highlights.set(HIGHLIGHT_KEY, highlight!);
+		CSS.highlights.set(highlightKey, highlight!);
 	}
 
-	function handleHighlight() {
+	async function handleHighlight() {
 		const selection = window.getSelection();
 		if (!isValidSelection(selection)) {
 			alert('Please select some text before highlighting.');
@@ -75,10 +84,22 @@
 
 		const range = selection!.getRangeAt(0);
 		const annotationId = crypto.randomUUID();
+
+		const response = await service.predict(textContent.slice(range.startOffset, range.endOffset));
 		addAnnotation({
 			annotationId,
 			start: range.startOffset,
-			end: range.endOffset
+			end: range.endOffset,
+			predictions: response.predictions
+		});
+
+		// Update resources with new predictions.
+		response.resources.forEach((resource) => {
+			if (resources.has(resource.resourceId)) {
+				return;
+			}
+
+			resources.set(resource.resourceId, resource);
 		});
 
 		// Clear the selection after highlighting.
@@ -120,8 +141,8 @@
 			return;
 		}
 
-		selectedAnnotations = intersection(annotations, caretRange);
-		if (selectedAnnotations.length === 0) {
+		selectedAnnotations = new Set(intersection(Array.from(annotations.values()), caretRange));
+		if (selectedAnnotations.size === 0) {
 			// No annotations at the caret position, so close the dialog.
 			closeDialog();
 			return;
@@ -158,7 +179,7 @@
 	tabindex="0"
 	onkeydown={handleTextKeyDown}
 >
-	{props.text}
+	{textContent}
 </div>
 
 {#if isSelecting}
@@ -180,14 +201,18 @@
 				<li>
 					Range: <strong>{annotation.start}</strong>..<strong>{annotation.end}</strong>
 				</li>
-				<li>Text: <strong>{props.text.slice(annotation.start, annotation.end)}</strong></li>
+				<li>Text: <strong>{textContent.slice(annotation.start, annotation.end)}</strong></li>
 			</ul>
 			<select value={annotation.resourceId}>
 				{#each annotation.predictions ?? [] as prediction (prediction.resourceId)}
-					{@const resource = resources.find((r) => r.resourceId === prediction.resourceId)!}
-					<option value={prediction.resourceId}>
-						{resource?.resourceLabel} ({(prediction.confidence * 100).toFixed(2)}%)
-					</option>
+					{@const resource = resources.get(prediction.resourceId)}
+					{#if resource}
+						<option value={prediction.resourceId}>
+							{resource.resourceLabel ?? 'Unlabeled resource'} ({(
+								prediction.confidence * 100
+							).toFixed(2)}%)
+						</option>
+					{/if}
 				{:else}
 					<option value="" disabled>No predictions available</option>
 				{/each}
