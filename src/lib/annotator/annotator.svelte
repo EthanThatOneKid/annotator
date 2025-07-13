@@ -19,7 +19,7 @@
 	let highlight = $state<Highlight | null>(null);
 	let caretRange = $state<Range | null>(null);
 	let annotations = $state<Annotation[]>(props.annotations);
-	// let resources = $state<Resource[]>(props.resources);
+	let resources = $state<Resource[]>(props.resources);
 	let ranges = $state<Map<string, Range>>(new Map());
 	let selectedAnnotations = $state<Annotation[]>([]);
 
@@ -182,6 +182,16 @@
 				</li>
 				<li>Text: <strong>{props.text.slice(annotation.start, annotation.end)}</strong></li>
 			</ul>
+			<select value={annotation.resourceId}>
+				{#each annotation.predictions ?? [] as prediction (prediction.resourceId)}
+					{@const resource = resources.find((r) => r.resourceId === prediction.resourceId)!}
+					<option value={prediction.resourceId}>
+						{resource?.resourceLabel} ({(prediction.confidence * 100).toFixed(2)}%)
+					</option>
+				{:else}
+					<option value="" disabled>No predictions available</option>
+				{/each}
+			</select>
 			<button type="button" onclick={() => handleDismissAnnotation(annotation.annotationId)}
 				>Dismiss</button
 			>

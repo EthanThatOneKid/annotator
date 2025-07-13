@@ -12,19 +12,26 @@ class CafeService implements AnnotatorService {
 					annotationId: 'demo-annotation-1',
 					start: 0,
 					end: 40,
-					resourceId: 'event-1'
+					predictions: [{ resourceId: 'event-1', confidence: 0.9 }]
 				},
 				{
 					annotationId: 'demo-annotation-2',
 					start: 12,
 					end: 17,
-					resourceId: 'person-1'
+					predictions: [
+						{ resourceId: 'person-1', confidence: 0.8 },
+						{ resourceId: 'person-2', confidence: 0.6 },
+						{ resourceId: 'person-3', confidence: 0.4 }
+					]
 				},
 				{
 					annotationId: 'demo-annotation-3',
 					start: 21,
 					end: 40,
-					resourceId: 'cafe-1'
+					predictions: [
+						{ resourceId: 'cafe-1', confidence: 0.9 },
+						{ resourceId: 'cafe-2', confidence: 0.7 }
+					]
 				}
 			],
 			resources: [
@@ -33,8 +40,20 @@ class CafeService implements AnnotatorService {
 					resourceLabel: 'Angel'
 				},
 				{
+					resourceId: 'person-2',
+					resourceLabel: 'John'
+				},
+				{
+					resourceId: 'person-3',
+					resourceLabel: 'Ethan'
+				},
+				{
 					resourceId: 'cafe-1',
 					resourceLabel: 'The Lost Bean'
+				},
+				{
+					resourceId: 'cafe-2',
+					resourceLabel: 'Play Coffee'
 				},
 				{
 					resourceId: 'event-1',
