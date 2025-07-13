@@ -176,7 +176,7 @@
 
 <style>
 	::highlight(custom-highlight) {
-		background: yellow;
+		background: rgba(255, 255, 0, 0.5);
 		cursor: pointer; /* This doesn't do anything AFAICT. */
 	}
 
