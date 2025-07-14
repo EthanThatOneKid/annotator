@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import type {
 		Annotation,
 		Resource,
@@ -23,60 +24,38 @@
 
 	let isGenerating = $state(false);
 	let isSelecting = $state(false);
-	let highlight = $state<Highlight | null>(null);
 	let caretRange = $state<Range | null>(null);
 	let dialogElement = $state<HTMLDialogElement | null>(null);
 	let textContainerElement = $state<HTMLDivElement | null>(null);
-	let annotatedRanges = $state(new Map<string, Range>());
-	let selectedAnnotations = $state(new Set<Annotation>());
+	let selectedAnnotations = $state(new SvelteSet<Annotation>());
+	let annotatedRanges = $state(new SvelteMap<string, Range>());
 	let annotations = $state(
-		new Map<string, Annotation>(generated.annotations.map((a) => [a.annotationId, a]))
+		new SvelteMap<string, Annotation>(generated.annotations.map((a) => [a.annotationId, a]))
 	);
 	let resources = $state(
-		new Map<string, Resource>(generated.resources.map((r) => [r.resourceId, r]))
+		new SvelteMap<string, Resource>(generated.resources.map((r) => [r.resourceId, r]))
 	);
 
 	onMount(async () => {
-		// TODO: Move into $effect, or $derive from annotations.
-		highlight = new Highlight();
+		// Add selection change listener.
+		document.addEventListener('selectionchange', handleSelectionChange);
+	});
+
+	$effect(() => {
+		const highlight = new Highlight();
 		annotations.forEach((annotation) => {
 			const range = new Range();
 			range.setStart(textContainerElement!.firstChild!, annotation.start);
 			range.setEnd(textContainerElement!.firstChild!, annotation.end);
 			annotatedRanges.set(annotation.annotationId, range);
-			highlight!.add(range);
+			highlight.add(range);
 		});
 
-		CSS.highlights.set(highlightKey, highlight!);
+		CSS.highlights.set(highlightKey, highlight);
 
-		// Add selection change listener.
-		document.addEventListener('selectionchange', handleSelectionChange);
+		// TODO: Update selectedAnnotations when annotations change.
+		// selectedAnnotations = new SvelteSet(selectedAnnotations);
 	});
-
-	function addAnnotation(annotation: Annotation) {
-		const range = new Range();
-		range.setStart(textContainerElement!.firstChild!, annotation.start);
-		range.setEnd(textContainerElement!.firstChild!, annotation.end);
-
-		highlight!.add(range);
-		annotatedRanges.set(annotation.annotationId, range);
-		annotations.set(annotation.annotationId, annotation);
-
-		CSS.highlights.set(highlightKey, highlight!);
-	}
-
-	function removeAnnotation(annotationId: string) {
-		const range = annotatedRanges.get(annotationId);
-		if (!range) {
-			return;
-		}
-
-		highlight!.delete(range);
-		annotatedRanges.delete(annotationId);
-		annotations.delete(annotationId);
-
-		CSS.highlights.set(highlightKey, highlight!);
-	}
 
 	function handleSelectResource(annotation: Annotation, event: Event) {
 		const resourceId = (event.target as HTMLSelectElement).value;
@@ -88,8 +67,7 @@
 		annotation.resourceId = resourceId;
 		annotations.set(annotation.annotationId, annotation);
 
-		// TODO: Trigger state change.
-		selectedAnnotations = new Set(selectedAnnotations);
+		console.log(`Selected resource ${resourceId} for annotation ${annotation.annotationId}`);
 	}
 
 	async function handleHighlight() {
@@ -101,9 +79,9 @@
 
 		const range = selection!.getRangeAt(0);
 		const annotationId = crypto.randomUUID();
-
-		const response = await service.predict(textContent.slice(range.startOffset, range.endOffset));
-		addAnnotation({
+		const substring = textContent.slice(range.startOffset, range.endOffset);
+		const response = await service.predict(substring);
+		annotations.set(annotationId, {
 			annotationId,
 			start: range.startOffset,
 			end: range.endOffset,
@@ -154,7 +132,7 @@
 			return;
 		}
 
-		selectedAnnotations = new Set(intersection(Array.from(annotations.values()), caretRange));
+		selectedAnnotations = new SvelteSet(intersection(Array.from(annotations.values()), caretRange));
 		if (selectedAnnotations.size === 0) {
 			// No annotations at the caret position, so close the dialog.
 			closeDialog();
@@ -174,7 +152,7 @@
 	}
 
 	function handleDismissAnnotation(annotationId: string) {
-		removeAnnotation(annotationId);
+		annotations.delete(annotationId);
 		closeDialog();
 	}
 
@@ -207,45 +185,52 @@
 {/if}
 
 <dialog id="metadata-dialog" class="metadata-dialog" bind:this={dialogElement} closedby="any">
-	{#each selectedAnnotations as annotation (annotation.annotationId)}
-		{@const substring = textContent.slice(annotation.start, annotation.end)}
-		{@const selectedResource = annotation.resourceId
-			? resources.get(annotation.resourceId)
-			: undefined}
-		<div class="annotation-metadata">
-			<p class="annotation-substring">{substring}</p>
+	<!-- {#each selectedAnnotations as annotation (annotation.annotationId)} -->
+	{#each Array.from(annotations.values()) as annotation (annotation.annotationId)}
+		{#if selectedAnnotations.has(annotation)}
+			{@const substring = textContent.slice(annotation.start, annotation.end)}
+			{@const selectedResource = annotation.resourceId
+				? resources.get(annotation.resourceId)
+				: undefined}
+			<div class="annotation-metadata">
+				<p class="annotation-substring">{substring}</p>
 
-			{#if selectedResource}
 				<!-- TODO: Render resource preview card. -->
-				<p class="resource-label">
-					Selected Resource: {selectedResource.resourceLabel ?? 'Unlabeled resource'}
-				</p>
-			{:else}
-				<p class="resource-label">No resource selected</p>
-			{/if}
-
-			<select
-				value={annotation.resourceId}
-				onchange={(event) => handleSelectResource(annotation, event)}
-			>
-				{#each annotation.predictions ?? [] as prediction (prediction.resourceId)}
-					{@const predictedResource = resources.get(prediction.resourceId)}
-					{#if predictedResource}
-						<option value={prediction.resourceId}>
-							{predictedResource.resourceLabel ?? 'Unlabeled resource'} ({(
-								prediction.confidence * 100
-							).toFixed(2)}%)
-						</option>
-					{/if}
+				<!-- {#if selectedResource}
+					<p class="resource-label">
+						Selected: {selectedResource.resourceLabel ?? 'Unlabeled resource'}
+					</p>
 				{:else}
-					<option value="" disabled>No predictions available</option>
-				{/each}
-			</select>
+					<p class="resource-label">No resource selected</p>
+				{/if} -->
 
-			<button type="button" onclick={() => handleDismissAnnotation(annotation.annotationId)}
-				>Dismiss</button
-			>
-		</div>
+				<select
+					value={annotation.resourceId}
+					onchange={(event) => handleSelectResource(annotation, event)}
+				>
+					{#if (annotation.predictions ?? []).length > 0}
+						<option value="" selected>Select a resource</option>
+					{:else}
+						<option value="" disabled>No predictions available</option>
+					{/if}
+
+					{#each annotation.predictions ?? [] as prediction (prediction.resourceId)}
+						{@const predictedResource = resources.get(prediction.resourceId)}
+						{#if predictedResource}
+							<option value={prediction.resourceId}>
+								{predictedResource.resourceLabel ?? 'Unlabeled resource'} ({(
+									prediction.confidence * 100
+								).toFixed(2)}%)
+							</option>
+						{/if}
+					{/each}
+				</select>
+
+				<button type="button" onclick={() => handleDismissAnnotation(annotation.annotationId)}
+					>Dismiss</button
+				>
+			</div>
+		{/if}
 	{/each}
 
 	<button type="button" onclick={() => closeDialog()}>Close</button>
