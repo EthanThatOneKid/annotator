@@ -15,9 +15,9 @@
 		service,
 		highlightKey = 'custom-highlight'
 	}: {
-		textContent: string;
-		generated: AnnotateResponse;
 		service: AnnotatorService;
+		generated: AnnotateResponse;
+		textContent: string;
 		highlightKey?: string;
 	} = $props();
 
@@ -37,6 +37,7 @@
 	);
 
 	onMount(async () => {
+		// TODO: Move into $effect, or $derive from annotations.
 		highlight = new Highlight();
 		annotations.forEach((annotation) => {
 			const range = new Range();
@@ -56,9 +57,11 @@
 		const range = new Range();
 		range.setStart(textContainerElement!.firstChild!, annotation.start);
 		range.setEnd(textContainerElement!.firstChild!, annotation.end);
+
+		highlight!.add(range);
 		annotatedRanges.set(annotation.annotationId, range);
 		annotations.set(annotation.annotationId, annotation);
-		highlight!.add(range);
+
 		CSS.highlights.set(highlightKey, highlight!);
 	}
 
@@ -73,6 +76,20 @@
 		annotations.delete(annotationId);
 
 		CSS.highlights.set(highlightKey, highlight!);
+	}
+
+	function handleSelectResource(annotation: Annotation, event: Event) {
+		const resourceId = (event.target as HTMLSelectElement).value;
+		if (!resourceId) {
+			return;
+		}
+
+		// Update the annotation with the selected resource.
+		annotation.resourceId = resourceId;
+		annotations.set(annotation.annotationId, annotation);
+
+		// TODO: Trigger state change.
+		selectedAnnotations = new Set(selectedAnnotations);
 	}
 
 	async function handleHighlight() {
@@ -95,10 +112,6 @@
 
 		// Update resources with new predictions.
 		response.resources.forEach((resource) => {
-			if (resources.has(resource.resourceId)) {
-				return;
-			}
-
 			resources.set(resource.resourceId, resource);
 		});
 
@@ -195,20 +208,31 @@
 
 <dialog id="metadata-dialog" class="metadata-dialog" bind:this={dialogElement} closedby="any">
 	{#each selectedAnnotations as annotation (annotation.annotationId)}
+		{@const substring = textContent.slice(annotation.start, annotation.end)}
+		{@const selectedResource = annotation.resourceId
+			? resources.get(annotation.resourceId)
+			: undefined}
 		<div class="annotation-metadata">
-			<ul>
-				<li>Annotation ID: <strong>{annotation.annotationId}</strong></li>
-				<li>
-					Range: <strong>{annotation.start}</strong>..<strong>{annotation.end}</strong>
-				</li>
-				<li>Text: <strong>{textContent.slice(annotation.start, annotation.end)}</strong></li>
-			</ul>
-			<select value={annotation.resourceId}>
+			<p class="annotation-substring">{substring}</p>
+
+			{#if selectedResource}
+				<!-- TODO: Render resource preview card. -->
+				<p class="resource-label">
+					Selected Resource: {selectedResource.resourceLabel ?? 'Unlabeled resource'}
+				</p>
+			{:else}
+				<p class="resource-label">No resource selected</p>
+			{/if}
+
+			<select
+				value={annotation.resourceId}
+				onchange={(event) => handleSelectResource(annotation, event)}
+			>
 				{#each annotation.predictions ?? [] as prediction (prediction.resourceId)}
-					{@const resource = resources.get(prediction.resourceId)}
-					{#if resource}
+					{@const predictedResource = resources.get(prediction.resourceId)}
+					{#if predictedResource}
 						<option value={prediction.resourceId}>
-							{resource.resourceLabel ?? 'Unlabeled resource'} ({(
+							{predictedResource.resourceLabel ?? 'Unlabeled resource'} ({(
 								prediction.confidence * 100
 							).toFixed(2)}%)
 						</option>
@@ -217,6 +241,7 @@
 					<option value="" disabled>No predictions available</option>
 				{/each}
 			</select>
+
 			<button type="button" onclick={() => handleDismissAnnotation(annotation.annotationId)}
 				>Dismiss</button
 			>
@@ -242,6 +267,91 @@
 		border-radius: 8px;
 		padding: 20px;
 		max-width: 400px;
+		background: white;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	}
+
+	.annotation-metadata {
+		background: #f8f9fa;
+		border: 1px solid #e9ecef;
+		border-radius: 6px;
+		padding: 16px;
+		margin-bottom: 16px;
+		transition: all 0.2s ease;
+	}
+
+	.annotation-metadata:hover {
+		background: #f1f3f4;
+		border-color: #dee2e6;
+	}
+
+	.annotation-substring {
+		font-weight: 600;
+		color: #2c3e50;
+		background: #fff3cd;
+		border: 1px solid #ffeaa7;
+		border-radius: 4px;
+		padding: 8px 12px;
+		margin: 0 0 12px 0;
+		font-size: 14px;
+		line-height: 1.4;
+	}
+
+	.resource-label {
+		color: #6c757d;
+		font-size: 13px;
+		margin: 0 0 12px 0;
+		font-weight: 500;
+	}
+
+	.annotation-metadata select {
+		width: 100%;
+		padding: 8px 12px;
+		border: 1px solid #ced4da;
+		border-radius: 4px;
+		background: white;
+		font-size: 14px;
+		margin-bottom: 12px;
+		transition: border-color 0.2s ease;
+	}
+
+	.annotation-metadata select:focus {
+		outline: none;
+		border-color: #007bff;
+		box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+	}
+
+	.annotation-metadata button {
+		background: #dc3545;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		padding: 8px 16px;
+		font-size: 14px;
+		cursor: pointer;
+		transition: background-color 0.2s ease;
+	}
+
+	.annotation-metadata button:hover {
+		background: #c82333;
+	}
+
+	.metadata-dialog > button:last-child {
+		background: #6c757d;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		padding: 10px 20px;
+		font-size: 14px;
+		cursor: pointer;
+		transition: background-color 0.2s ease;
+		width: 100%;
+		margin-top: 8px;
+	}
+
+	.metadata-dialog > button:last-child:hover {
+		background: #5a6268;
 	}
 
 	.spinner-container {

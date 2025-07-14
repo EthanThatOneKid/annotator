@@ -38,6 +38,10 @@ export interface Annotation {
 
 export interface Prediction {
 	resourceId: string;
+
+	/**
+	 * confidence is a value between 0 and 1 indicating the confidence of the prediction.
+	 */
 	confidence: number;
 }
 
