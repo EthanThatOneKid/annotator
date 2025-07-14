@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
 	import Annotator from '$lib/components/annotator/annotator.svelte';
-	import { CompromiseService } from '$lib/services/annotator/compromise/compromise';
+	import { CafeService } from './cafe';
 
 	let { data }: PageProps = $props();
 
-	const service = new CompromiseService();
+	const service = new CafeService();
 </script>
 
 <Annotator {...data} {service} />

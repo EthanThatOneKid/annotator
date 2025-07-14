@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import type {
 		Annotation,
 		Resource,
@@ -27,14 +26,18 @@
 	let caretRange = $state<Range | null>(null);
 	let dialogElement = $state<HTMLDialogElement | null>(null);
 	let textContainerElement = $state<HTMLDivElement | null>(null);
-	let selectedAnnotations = $state(new SvelteSet<Annotation>());
-	let annotatedRanges = $state(new SvelteMap<string, Range>());
+	let selectedAnnotations = $state(new Set<Annotation>());
+	let annotatedRanges = $state(new Map<string, Range>());
 	let annotations = $state(
-		new SvelteMap<string, Annotation>(generated.annotations.map((a) => [a.annotationId, a]))
+		new Map<string, Annotation>(generated.annotations.map((a) => [a.annotationId, a]))
 	);
 	let resources = $state(
-		new SvelteMap<string, Resource>(generated.resources.map((r) => [r.resourceId, r]))
+		new Map<string, Resource>(generated.resources.map((r) => [r.resourceId, r]))
 	);
+
+	// TODO: Open the dialog after the user hovers over a highlighted annotation for 1 second.
+	// TODO: Add a new button to the dialog that allows the user to create a new resource. This triggers a new form element to appear where the user can submit a new resource or cancel their resource draft.
+	// TODO: Manage state history and support undo/redo for annotations.
 
 	onMount(async () => {
 		// Add selection change listener.
@@ -66,8 +69,6 @@
 		// Update the annotation with the selected resource.
 		annotation.resourceId = resourceId;
 		annotations.set(annotation.annotationId, annotation);
-
-		console.log(`Selected resource ${resourceId} for annotation ${annotation.annotationId}`);
 	}
 
 	async function handleHighlight() {
@@ -132,7 +133,7 @@
 			return;
 		}
 
-		selectedAnnotations = new SvelteSet(intersection(Array.from(annotations.values()), caretRange));
+		selectedAnnotations = new Set(intersection(Array.from(annotations.values()), caretRange));
 		if (selectedAnnotations.size === 0) {
 			// No annotations at the caret position, so close the dialog.
 			closeDialog();
@@ -185,18 +186,16 @@
 {/if}
 
 <dialog id="metadata-dialog" class="metadata-dialog" bind:this={dialogElement} closedby="any">
-	<!-- {#each selectedAnnotations as annotation (annotation.annotationId)} -->
-	{#each Array.from(annotations.values()) as annotation (annotation.annotationId)}
-		{#if selectedAnnotations.has(annotation)}
-			{@const substring = textContent.slice(annotation.start, annotation.end)}
-			{@const selectedResource = annotation.resourceId
-				? resources.get(annotation.resourceId)
-				: undefined}
-			<div class="annotation-metadata">
-				<p class="annotation-substring">{substring}</p>
+	{#each selectedAnnotations as annotation (annotation.annotationId)}
+		{@const substring = textContent.slice(annotation.start, annotation.end)}
+		{@const selectedResource = annotation.resourceId
+			? resources.get(annotation.resourceId)
+			: undefined}
+		<div class="annotation-metadata">
+			<p class="annotation-substring">{substring}</p>
 
-				<!-- TODO: Render resource preview card. -->
-				<!-- {#if selectedResource}
+			<!-- TODO: Render resource preview card. -->
+			<!-- {#if selectedResource}
 					<p class="resource-label">
 						Selected: {selectedResource.resourceLabel ?? 'Unlabeled resource'}
 					</p>
@@ -204,33 +203,33 @@
 					<p class="resource-label">No resource selected</p>
 				{/if} -->
 
-				<select
-					value={annotation.resourceId}
-					onchange={(event) => handleSelectResource(annotation, event)}
-				>
-					{#if (annotation.predictions ?? []).length > 0}
-						<option value="" selected>Select a resource</option>
-					{:else}
-						<option value="" disabled>No predictions available</option>
+			<!-- TODO: Search for other resources.  -->
+			<select
+				value={annotation.resourceId}
+				onchange={(event) => handleSelectResource(annotation, event)}
+			>
+				{#if (annotation.predictions ?? []).length > 0}
+					<option value="" selected>Select a resource</option>
+				{:else}
+					<option value="" disabled>No predictions available</option>
+				{/if}
+
+				{#each annotation.predictions ?? [] as prediction (prediction.resourceId)}
+					{@const predictedResource = resources.get(prediction.resourceId)}
+					{#if predictedResource}
+						<option value={prediction.resourceId}>
+							{predictedResource.resourceLabel ?? 'Unlabeled resource'} ({(
+								prediction.confidence * 100
+							).toFixed(2)}%)
+						</option>
 					{/if}
+				{/each}
+			</select>
 
-					{#each annotation.predictions ?? [] as prediction (prediction.resourceId)}
-						{@const predictedResource = resources.get(prediction.resourceId)}
-						{#if predictedResource}
-							<option value={prediction.resourceId}>
-								{predictedResource.resourceLabel ?? 'Unlabeled resource'} ({(
-									prediction.confidence * 100
-								).toFixed(2)}%)
-							</option>
-						{/if}
-					{/each}
-				</select>
-
-				<button type="button" onclick={() => handleDismissAnnotation(annotation.annotationId)}
-					>Dismiss</button
-				>
-			</div>
-		{/if}
+			<button type="button" onclick={() => handleDismissAnnotation(annotation.annotationId)}
+				>Dismiss</button
+			>
+		</div>
 	{/each}
 
 	<button type="button" onclick={() => closeDialog()}>Close</button>
