@@ -20,7 +20,6 @@ export interface PredictResponse {
 
 export interface Resource {
 	resourceId: string;
-	resourceType?: string;
 	resourceLabel?: string;
 	resourceDescription?: string;
 }
@@ -32,8 +31,21 @@ export interface Annotation {
 	annotationId: string;
 	start: number;
 	end: number;
+
+	/**
+	 * resourceId is the ID of the resource associated with this annotation.
+	 */
 	resourceId?: string;
+
+	/**
+	 * predictions is a list of resources predicted to be associated with this annotation.
+	 */
 	predictions?: Prediction[];
+
+	/**
+	 * content is the comment associated with the annotation.
+	 */
+	content?: string;
 }
 
 export interface Prediction {

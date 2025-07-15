@@ -26,6 +26,7 @@
 	let caretRange = $state<Range | null>(null);
 	let dialogElement = $state<HTMLDialogElement | null>(null);
 	let textContainerElement = $state<HTMLDivElement | null>(null);
+	let selectedAnnotationId = $state<string | null>(null);
 	let selectedAnnotations = $state(new Set<Annotation>());
 	let annotatedRanges = $state(new Map<string, Range>());
 	let annotations = $state(
@@ -34,6 +35,44 @@
 	let resources = $state(
 		new Map<string, Resource>(generated.resources.map((r) => [r.resourceId, r]))
 	);
+
+	let resourceDialogElement: HTMLDialogElement | null = null;
+
+	// Resource dialog is opened from within annotation dialog.
+	function openResourceDialog(annotationId: string) {
+		selectedAnnotationId = annotationId;
+		resourceDialogElement?.showModal();
+	}
+
+	function closeResourceDialog() {
+		selectedAnnotationId = null;
+		resourceDialogElement?.close();
+	}
+
+	function handleResourceFormSubmit(event: Event) {
+		event.preventDefault();
+		if (selectedAnnotationId === null) {
+			return;
+		}
+
+		const form = event.target as HTMLFormElement;
+		const formData = new FormData(form);
+		const resourceLabel = formData.get('label') as string;
+		const resourceDescription = formData.get('description') as string;
+		const resourceId = crypto.randomUUID();
+		resources.set(resourceId, {
+			resourceId,
+			resourceLabel,
+			resourceDescription
+		});
+
+		const annotation = annotations.get(selectedAnnotationId)!;
+		annotations.set(selectedAnnotationId, { ...annotation, resourceId });
+
+		closeResourceDialog();
+
+		// TODO: Make sure logical dialog appears next.
+	}
 
 	// TODO: Open the dialog after the user hovers over a highlighted annotation for 1 second.
 	// TODO: Add a new button to the dialog that allows the user to create a new resource. This triggers a new form element to appear where the user can submit a new resource or cancel their resource draft.
@@ -55,9 +94,6 @@
 		});
 
 		CSS.highlights.set(highlightKey, highlight);
-
-		// TODO: Update selectedAnnotations when annotations change.
-		// selectedAnnotations = new SvelteSet(selectedAnnotations);
 	});
 
 	function handleSelectResource(annotation: Annotation, event: Event) {
@@ -185,9 +221,15 @@
 	</div>
 {/if}
 
-<dialog id="metadata-dialog" class="metadata-dialog" bind:this={dialogElement} closedby="any">
+<dialog class="annotations-dialog" bind:this={dialogElement} closedby="any">
+	<button type="button" class="dialog-close-btn" aria-label="Close" onclick={() => closeDialog()}
+		>&times;</button
+	>
 	{#each selectedAnnotations as annotation (annotation.annotationId)}
 		{@const substring = textContent.slice(annotation.start, annotation.end)}
+		{@const predictions = (annotation.predictions ?? []).toSorted(
+			(a, b) => b.confidence - a.confidence
+		)}
 		{@const selectedResource = annotation.resourceId
 			? resources.get(annotation.resourceId)
 			: undefined}
@@ -208,31 +250,63 @@
 				value={annotation.resourceId}
 				onchange={(event) => handleSelectResource(annotation, event)}
 			>
-				{#if (annotation.predictions ?? []).length > 0}
-					<option value="" selected>Select a resource</option>
-				{:else}
-					<option value="" disabled>No predictions available</option>
-				{/if}
+				<option value="">Choose a resource</option>
 
-				{#each annotation.predictions ?? [] as prediction (prediction.resourceId)}
-					{@const predictedResource = resources.get(prediction.resourceId)}
-					{#if predictedResource}
+				<hr />
+
+				<optgroup label="Predictions">
+					{#each predictions as prediction (prediction.resourceId)}
+						{@const predictedResource = resources.get(prediction.resourceId)}
 						<option value={prediction.resourceId}>
-							{predictedResource.resourceLabel ?? 'Unlabeled resource'} ({(
+							{predictedResource?.resourceLabel ?? 'Unlabeled resource'} ({(
 								prediction.confidence * 100
 							).toFixed(2)}%)
 						</option>
-					{/if}
-				{/each}
+					{:else}
+						<option value="" disabled>No resources found</option>
+					{/each}
+				</optgroup>
+
+				<optgroup label="User defined resources"></optgroup>
 			</select>
 
-			<button type="button" onclick={() => handleDismissAnnotation(annotation.annotationId)}
-				>Dismiss</button
+			<button
+				type="button"
+				onclick={() => openResourceDialog(annotation.annotationId)}
+				class="btn-add-resource btn-primary">&plus; Resource</button
+			>
+			<button
+				type="button"
+				class="btn-secondary"
+				onclick={() => handleDismissAnnotation(annotation.annotationId)}>Dismiss</button
 			>
 		</div>
 	{/each}
+</dialog>
 
-	<button type="button" onclick={() => closeDialog()}>Close</button>
+<dialog class="resource-dialog" bind:this={resourceDialogElement} closedby="any">
+	<button type="button" class="dialog-close-btn" aria-label="Close" onclick={closeResourceDialog}
+		>&times;</button
+	>
+	<form onsubmit={handleResourceFormSubmit}>
+		<input
+			type="text"
+			name="label"
+			placeholder="Enter resource name..."
+			required
+			class="resource-label-input"
+		/>
+		<textarea
+			name="description"
+			placeholder="Add a description (optional)"
+			rows="3"
+			class="resource-description-input"
+		></textarea>
+		<div class="resource-dialog-actions">
+			<button type="submit" class="btn-primary">Save</button>
+			<button type="button" onclick={closeResourceDialog} class="btn-secondary">Cancel</button>
+		</div>
+	</form>
 </dialog>
 
 <style>
@@ -246,7 +320,7 @@
 		outline: none;
 	}
 
-	.metadata-dialog {
+	.annotations-dialog {
 		border: 1px solid #ccc;
 		border-radius: 8px;
 		padding: 20px;
@@ -306,22 +380,7 @@
 		box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 	}
 
-	.annotation-metadata button {
-		background: #dc3545;
-		color: white;
-		border: none;
-		border-radius: 4px;
-		padding: 8px 16px;
-		font-size: 14px;
-		cursor: pointer;
-		transition: background-color 0.2s ease;
-	}
-
-	.annotation-metadata button:hover {
-		background: #c82333;
-	}
-
-	.metadata-dialog > button:last-child {
+	.annotations-dialog > button:last-child {
 		background: #6c757d;
 		color: white;
 		border: none;
@@ -334,7 +393,7 @@
 		margin-top: 8px;
 	}
 
-	.metadata-dialog > button:last-child:hover {
+	.annotations-dialog > button:last-child:hover {
 		background: #5a6268;
 	}
 
@@ -362,5 +421,130 @@
 		100% {
 			transform: rotate(360deg);
 		}
+	}
+
+	.resource-dialog {
+		border: 1px solid #ccc;
+		border-radius: 8px;
+		padding: 20px;
+		max-width: 400px;
+		background: white;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	}
+
+	.resource-label-input,
+	.resource-description-input {
+		width: 100%;
+		width: -moz-available; /* WebKit-based browsers will ignore this. */
+		width: -webkit-fill-available; /* Mozilla-based browsers will ignore this. */
+		width: stretch;
+	}
+
+	.resource-label-input {
+		padding: 12px 16px;
+		border: 1px solid #e1e8ed;
+		border-radius: 6px;
+		font-size: 16px;
+		font-weight: 500;
+		margin-bottom: 1em;
+		background: #f8f9fa;
+		transition: all 0.2s ease;
+	}
+
+	.resource-label-input:focus {
+		outline: none;
+		border-color: #007bff;
+		background: white;
+		box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+	}
+
+	.resource-description-input {
+		padding: 12px 16px;
+		border: 1px solid #e1e8ed;
+		border-radius: 6px;
+		font-size: 14px;
+		margin-bottom: 1.5em;
+		resize: vertical;
+		min-height: 80px;
+		transition: border-color 0.2s ease;
+	}
+
+	.resource-description-input:focus {
+		outline: none;
+		border-color: #007bff;
+		box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+	}
+
+	.resource-dialog-actions {
+		display: flex;
+		gap: 0.75em;
+	}
+
+	.btn-primary {
+		background: #007bff;
+		color: white;
+		border: none;
+		border-radius: 6px;
+		padding: 10px 20px;
+		font-size: 14px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background-color 0.2s ease;
+		flex: 1;
+	}
+
+	.btn-primary:hover {
+		background: #0056b3;
+	}
+
+	.btn-secondary {
+		background: #6c757d;
+		color: white;
+		border: none;
+		border-radius: 6px;
+		padding: 10px 20px;
+		font-size: 14px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background-color 0.2s ease;
+		flex: 1;
+	}
+
+	.btn-secondary:hover {
+		background: #5a6268;
+	}
+
+	.btn-add-resource {
+		background: #007bff;
+		color: white;
+		border: none;
+		border-radius: 6px;
+		padding: 10px 20px;
+		font-size: 14px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background-color 0.2s ease;
+	}
+
+	.btn-add-resource:hover {
+		background: #0056b3;
+	}
+
+	.dialog-close-btn {
+		position: absolute;
+		top: 0px;
+		right: 0px;
+		background: transparent;
+		border: none;
+		font-size: 1.5em;
+		color: #888;
+		cursor: pointer;
+		z-index: 10;
+		transition: color 0.2s;
+	}
+
+	.dialog-close-btn:hover {
+		color: #333;
 	}
 </style>
