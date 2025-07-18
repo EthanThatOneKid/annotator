@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type {
 		Annotation,
 		Resource,
 		AnnotatorService,
 		AnnotateResponse
 	} from '$lib/services/annotator/annotator';
-	import { intersection } from '$lib/services/annotator/annotator';
+	import { intersection, applyTopPrediction } from '$lib/services/annotator/annotator';
 	import { getCaretRange } from './caret';
 
 	let {
@@ -26,53 +27,15 @@
 	let caretRange = $state<Range | null>(null);
 	let dialogElement = $state<HTMLDialogElement | null>(null);
 	let textContainerElement = $state<HTMLDivElement | null>(null);
-	let selectedAnnotationId = $state<string | null>(null);
-	let selectedAnnotations = $state(new Set<Annotation>());
-	let annotatedRanges = $state(new Map<string, Range>());
-	let annotations = $state(
-		new Map<string, Annotation>(generated.annotations.map((a) => [a.annotationId, a]))
+	const selectedAnnotations = new SvelteSet<Annotation>();
+	const annotatedRanges = new SvelteMap<string, Range>();
+	const annotations = new SvelteMap<string, Annotation>(
+		generated.annotations.map((a) => [a.annotationId, applyTopPrediction(a)])
 	);
-	let resources = $state(
-		new Map<string, Resource>(generated.resources.map((r) => [r.resourceId, r]))
+	const resources = new SvelteMap<string, Resource>(
+		generated.resources.map((r) => [r.resourceId, r])
 	);
-
-	let resourceDialogElement: HTMLDialogElement | null = null;
-
-	// Resource dialog is opened from within annotation dialog.
-	function openResourceDialog(annotationId: string) {
-		selectedAnnotationId = annotationId;
-		resourceDialogElement?.showModal();
-	}
-
-	function closeResourceDialog() {
-		selectedAnnotationId = null;
-		resourceDialogElement?.close();
-	}
-
-	function handleResourceFormSubmit(event: Event) {
-		event.preventDefault();
-		if (selectedAnnotationId === null) {
-			return;
-		}
-
-		const form = event.target as HTMLFormElement;
-		const formData = new FormData(form);
-		const resourceLabel = formData.get('label') as string;
-		const resourceDescription = formData.get('description') as string;
-		const resourceId = crypto.randomUUID();
-		resources.set(resourceId, {
-			resourceId,
-			resourceLabel,
-			resourceDescription
-		});
-
-		const annotation = annotations.get(selectedAnnotationId)!;
-		annotations.set(selectedAnnotationId, { ...annotation, resourceId });
-
-		closeResourceDialog();
-
-		// TODO: Make sure logical dialog appears next.
-	}
+	// let selectedAnnotationId = $state<string | null>(null);
 
 	// TODO: Open the dialog after the user hovers over a highlighted annotation for 1 second.
 	// TODO: Add a new button to the dialog that allows the user to create a new resource. This triggers a new form element to appear where the user can submit a new resource or cancel their resource draft.
@@ -103,7 +66,7 @@
 		}
 
 		// Update the annotation with the selected resource.
-		annotation.resourceId = resourceId;
+		annotation.reference = resourceId;
 		annotations.set(annotation.annotationId, annotation);
 	}
 
@@ -169,7 +132,10 @@
 			return;
 		}
 
-		selectedAnnotations = new Set(intersection(Array.from(annotations.values()), caretRange));
+		selectedAnnotations.clear();
+		intersection(Array.from(annotations.values()), caretRange).forEach((annotation) => {
+			selectedAnnotations.add(annotation);
+		});
 		if (selectedAnnotations.size === 0) {
 			// No annotations at the caret position, so close the dialog.
 			closeDialog();
@@ -230,51 +196,45 @@
 		{@const predictions = (annotation.predictions ?? []).toSorted(
 			(a, b) => b.confidence - a.confidence
 		)}
-		{@const selectedResource = annotation.resourceId
-			? resources.get(annotation.resourceId)
+		{@const selectedResource = annotation.reference
+			? resources.get(annotation.reference)
 			: undefined}
 		<div class="annotation-metadata">
 			<p class="annotation-substring">{substring}</p>
 
-			<!-- TODO: Render resource preview card. -->
-			<!-- {#if selectedResource}
-					<p class="resource-label">
-						Selected: {selectedResource.resourceLabel ?? 'Unlabeled resource'}
-					</p>
-				{:else}
-					<p class="resource-label">No resource selected</p>
-				{/if} -->
+			<!-- TODO: Fix bug where the following does not rerender on resource selection change. -->
+			{#if selectedResource}
+				<!-- TODO: Render resource preview card. -->
+				<p class="resource-label">
+					Selected: {selectedResource.resourceLabel ?? 'Unlabeled resource'}
+				</p>
+
+				<pre><code>{JSON.stringify(selectedResource, null, 2)}</code></pre>
+			{:else}
+				<p class="resource-label">No resource selected</p>
+			{/if}
 
 			<!-- TODO: Search for other resources.  -->
 			<select
-				value={annotation.resourceId}
+				value={annotation.reference}
 				onchange={(event) => handleSelectResource(annotation, event)}
 			>
-				<option value="">Choose a resource</option>
+				<option value="">Select a resource</option>
 
-				<hr />
-
-				<optgroup label="Predictions">
-					{#each predictions as prediction (prediction.resourceId)}
-						{@const predictedResource = resources.get(prediction.resourceId)}
-						<option value={prediction.resourceId}>
-							{predictedResource?.resourceLabel ?? 'Unlabeled resource'} ({(
-								prediction.confidence * 100
-							).toFixed(2)}%)
-						</option>
-					{:else}
-						<option value="" disabled>No resources found</option>
-					{/each}
-				</optgroup>
-
-				<optgroup label="User defined resources"></optgroup>
+				{#each predictions as prediction (prediction.resourceId)}
+					{@const predictedResource = resources.get(prediction.resourceId)}
+					<option value={prediction.resourceId}>
+						{predictedResource?.resourceLabel ?? 'Unlabeled resource'} ({(
+							prediction.confidence * 100
+						).toFixed(2)}%)
+					</option>
+				{:else}
+					<option value="" disabled>No resources found</option>
+				{/each}
 			</select>
 
-			<button
-				type="button"
-				onclick={() => openResourceDialog(annotation.annotationId)}
-				class="btn-add-resource btn-primary">&plus; Resource</button
-			>
+			<!-- TODO: Create a new resource. -->
+
 			<button
 				type="button"
 				class="btn-secondary"
@@ -282,31 +242,6 @@
 			>
 		</div>
 	{/each}
-</dialog>
-
-<dialog class="resource-dialog" bind:this={resourceDialogElement} closedby="any">
-	<button type="button" class="dialog-close-btn" aria-label="Close" onclick={closeResourceDialog}
-		>&times;</button
-	>
-	<form onsubmit={handleResourceFormSubmit}>
-		<input
-			type="text"
-			name="label"
-			placeholder="Enter resource name..."
-			required
-			class="resource-label-input"
-		/>
-		<textarea
-			name="description"
-			placeholder="Add a description (optional)"
-			rows="3"
-			class="resource-description-input"
-		></textarea>
-		<div class="resource-dialog-actions">
-			<button type="submit" class="btn-primary">Save</button>
-			<button type="button" onclick={closeResourceDialog} class="btn-secondary">Cancel</button>
-		</div>
-	</form>
 </dialog>
 
 <style>

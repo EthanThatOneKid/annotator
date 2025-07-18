@@ -33,19 +33,14 @@ export interface Annotation {
 	end: number;
 
 	/**
-	 * resourceId is the ID of the resource associated with this annotation.
+	 * reference is resource ID that associated with this annotation.
 	 */
-	resourceId?: string;
+	reference?: string;
 
 	/**
 	 * predictions is a list of resources predicted to be associated with this annotation.
 	 */
 	predictions?: Prediction[];
-
-	/**
-	 * content is the comment associated with the annotation.
-	 */
-	content?: string;
 }
 
 export interface Prediction {
@@ -66,4 +61,28 @@ export function intersection(annotations: Annotation[], range: Range | null): An
 	}
 
 	return annotations.filter((a) => a.start <= range.startOffset && a.end >= range.endOffset) ?? [];
+}
+
+/**
+ * applyTopPrediction updates an annotation's reference based on the most
+ * confident prediction.
+ */
+export function applyTopPrediction(annotation: Annotation): Annotation {
+	if (annotation.reference !== undefined) {
+		return annotation;
+	}
+
+	if (!annotation.predictions || annotation.predictions.length === 0) {
+		annotation.reference = undefined;
+		return annotation;
+	}
+
+	const inferred = annotation.predictions.toSorted((a, b) => b.confidence - a.confidence).at(0);
+	if (!inferred) {
+		annotation.reference = undefined;
+		return annotation;
+	}
+
+	annotation.reference = inferred.resourceId;
+	return annotation;
 }
