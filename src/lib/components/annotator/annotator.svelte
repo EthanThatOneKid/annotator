@@ -65,9 +65,18 @@
 			return;
 		}
 
-		// Update the annotation with the selected resource.
-		annotation.reference = resourceId;
-		annotations.set(annotation.annotationId, annotation);
+		// Create a new annotation object with the updated reference
+		const updatedAnnotation: Annotation = {
+			...annotation,
+			reference: resourceId
+		};
+
+		// Update both the annotations map and selectedAnnotations set
+		annotations.set(annotation.annotationId, updatedAnnotation);
+
+		// Replace the old annotation with the updated one in selectedAnnotations
+		selectedAnnotations.delete(annotation);
+		selectedAnnotations.add(updatedAnnotation);
 	}
 
 	async function handleHighlight() {
@@ -202,7 +211,6 @@
 		<div class="annotation-metadata">
 			<p class="annotation-substring">{substring}</p>
 
-			<!-- TODO: Fix bug where the following does not rerender on resource selection change. -->
 			{#if selectedResource}
 				<!-- TODO: Render resource preview card. -->
 				<p class="resource-label">
