@@ -36,7 +36,10 @@
 	const resources = new SvelteMap<string, Resource>(
 		generated.resources.map((r) => [r.resourceId, r])
 	);
-	// let selectedAnnotationId = $state<string | null>(null);
+	let showResourceForm = $state(false);
+	let resourceDraft = $state({ label: '', description: '', emoji: '' });
+	let resourceDraftError = $state('');
+	let resourceDraftForAnnotation = $state<Annotation | null>(null);
 
 	// TODO: Open the dialog after the user hovers over a highlighted annotation for 1 second.
 	// TODO: Add a new button to the dialog that allows the user to create a new resource. This triggers a new form element to appear where the user can submit a new resource or cancel their resource draft.
@@ -60,8 +63,11 @@
 		CSS.highlights.set(highlightKey, highlight);
 	});
 
-	function handleSelectResource(annotation: Annotation, event: Event) {
-		const resourceId = (event.target as HTMLSelectElement).value;
+	function handleSelectResource(
+		annotation: Annotation,
+		event: Event & { currentTarget: EventTarget & HTMLSelectElement }
+	) {
+		const resourceId = event.currentTarget.value;
 		if (!resourceId) {
 			return;
 		}
@@ -173,6 +179,57 @@
 		caretRange = null;
 		dialogElement?.close();
 	}
+
+	function handleAddResource(annotation: Annotation) {
+		showResourceForm = true;
+		resourceDraft = { label: '', description: '', emoji: '' };
+		resourceDraftError = '';
+		resourceDraftForAnnotation = annotation;
+	}
+
+	function handleCancelResourceDraft() {
+		showResourceForm = false;
+		resourceDraft = { label: '', description: '', emoji: '' };
+		resourceDraftError = '';
+		resourceDraftForAnnotation = null;
+	}
+
+	function handleResourceDraftInput(field: string, value: string) {
+		resourceDraft = { ...resourceDraft, [field]: value };
+	}
+
+	function handleSubmitResourceDraft() {
+		if (!resourceDraft.label.trim()) {
+			resourceDraftError = 'Label is required.';
+			return;
+		}
+
+		const resourceId = crypto.randomUUID();
+		const newResource: Resource = {
+			resourceId,
+			label: resourceDraft.label.trim(),
+			description: resourceDraft.description.trim(),
+			emoji: resourceDraft.emoji.trim() || '📄'
+		};
+
+		resources.set(resourceId, newResource);
+		if (resourceDraftForAnnotation) {
+			const updatedAnnotation: Annotation = {
+				...resourceDraftForAnnotation,
+				reference: resourceId
+			};
+			annotations.set(resourceDraftForAnnotation.annotationId, updatedAnnotation);
+			// Remove any annotation with the same annotationId before adding the updated one
+			selectedAnnotations.forEach((a) => {
+				if (a.annotationId === updatedAnnotation.annotationId) {
+					selectedAnnotations.delete(a);
+				}
+			});
+			selectedAnnotations.add(updatedAnnotation);
+		}
+
+		handleCancelResourceDraft();
+	}
 </script>
 
 <div
@@ -203,9 +260,7 @@
 	>
 	{#each selectedAnnotations as annotation (annotation.annotationId)}
 		{@const substring = textContent.slice(annotation.start, annotation.end)}
-		{@const predictions = (annotation.predictions ?? []).toSorted(
-			(a, b) => b.confidence - a.confidence
-		)}
+		{@const predictions = annotation.predictions?.toSorted((a, b) => b.confidence - a.confidence)}
 		{@const selectedResource = annotation.reference
 			? resources.get(annotation.reference)
 			: undefined}
@@ -219,7 +274,7 @@
 			{/if}
 
 			<!-- TODO: Search for other resources.  -->
-			{#if predictions.length > 0}
+			{#if predictions && predictions.length > 0}
 				<select
 					name={`select-resource-${annotation.annotationId}`}
 					value={annotation.reference}
@@ -237,7 +292,51 @@
 				</select>
 			{/if}
 
-			<!-- TODO: Create a new resource. -->
+			<!-- Add new resource button and form -->
+			{#if showResourceForm && resourceDraftForAnnotation?.annotationId === annotation.annotationId}
+				<div class="resource-dialog">
+					<input
+						type="text"
+						class="resource-label-input"
+						placeholder="Resource label"
+						bind:value={resourceDraft.label}
+						oninput={(event) => handleResourceDraftInput('label', event.currentTarget.value)}
+					/>
+					<textarea
+						class="resource-description-input"
+						placeholder="Resource description"
+						bind:value={resourceDraft.description}
+						oninput={(event) => handleResourceDraftInput('description', event.currentTarget.value)}
+					></textarea>
+					<input
+						type="text"
+						maxlength="2"
+						class="resource-label-input"
+						placeholder="Emoji (optional)"
+						bind:value={resourceDraft.emoji}
+						oninput={(event) => handleResourceDraftInput('emoji', event.currentTarget.value)}
+					/>
+					{#if resourceDraftError}
+						<p style="color: #c00; font-size: 13px; margin: 0 0 8px 0;">{resourceDraftError}</p>
+					{/if}
+					<div class="resource-dialog-actions">
+						<button type="button" class="btn-primary" onclick={handleSubmitResourceDraft}
+							>Submit</button
+						>
+						<button type="button" class="btn-secondary" onclick={handleCancelResourceDraft}
+							>Cancel</button
+						>
+					</div>
+				</div>
+			{:else}
+				<button
+					type="button"
+					class="btn-add-resource"
+					onclick={() => handleAddResource(annotation)}
+				>
+					+ Create new resource
+				</button>
+			{/if}
 
 			<button
 				type="button"

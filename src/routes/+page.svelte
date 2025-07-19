@@ -8,10 +8,10 @@
 	let textContent = $state<string | null>(null);
 	let generated = $state<AnnotateResponse | null>(null);
 
-	async function handleFormSubmit(event: Event) {
+	async function handleFormSubmit(event: Event & { currentTarget: EventTarget & HTMLFormElement }) {
 		event.preventDefault();
 
-		const form = event.target as HTMLFormElement;
+		const form = event.currentTarget;
 		const formData = new FormData(form);
 		const currentText = formData.get('textContent');
 		if (typeof currentText !== 'string') {
