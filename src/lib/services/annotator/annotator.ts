@@ -1,9 +1,7 @@
-// TODO: Separate annotator and predictor services. Annotator composes Predictor.
-
 /**
- * AnnotatorService generates suggestions from text.
+ * Annotator generates suggestions from text.
  */
-export interface AnnotatorService {
+export interface Annotator {
 	annotate(textContent: string): AnnotateResponse | Promise<AnnotateResponse>;
 	predict(textContent: string): PredictResponse | Promise<PredictResponse>;
 }

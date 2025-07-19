@@ -1,11 +1,11 @@
 import type {
 	AnnotateResponse,
-	AnnotatorService,
+	Annotator,
 	PredictResponse,
 	Resource
 } from '$lib/services/annotator/annotator';
 
-export class CafeService implements AnnotatorService {
+export class CafeService implements Annotator {
 	public static readonly textContent = 'Met up with Angel at The Lost Bean cafe.';
 	public static readonly resources: Record<string, Resource> = {
 		'person-1': {

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { AnnotateResponse } from '$lib/services/annotator/annotator';
-	import { CompromiseService } from '$lib/services/annotator/compromise/compromise';
+	import { CompromiseAnnotator } from '$lib/services/annotator/compromise/compromise';
 	import Annotator from '$lib/components/annotator/annotator.svelte';
 
-	const service = new CompromiseService();
+	const service = new CompromiseAnnotator();
 
 	let textContent = $state<string | null>(null);
 	let generated = $state<AnnotateResponse | null>(null);

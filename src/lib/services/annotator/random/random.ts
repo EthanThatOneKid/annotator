@@ -1,14 +1,14 @@
 import type { Annotation } from '$lib/services/annotator/annotator';
 import type {
 	AnnotateResponse,
-	AnnotatorService,
+	Annotator,
 	PredictResponse
 } from '$lib/services/annotator/annotator';
 
 /**
- * RandomService generates random annotations.
+ * RandomAnnotator generates random annotations.
  */
-export class RandomService implements AnnotatorService {
+export class RandomAnnotator implements Annotator {
 	public constructor(private readonly k: number = 1) {}
 
 	public annotate(textContent: string): AnnotateResponse {
@@ -34,32 +34,32 @@ export class RandomService implements AnnotatorService {
 	}
 }
 
-function randomRanges(textContent: string, k = 1): Array<[number, number]> {
+function randomRanges(
+	textContent: string,
+	k = 1,
+	minRangeSize = 1,
+	maxRangeSize = textContent.length
+): Array<[number, number]> {
 	const result: Array<[number, number]> = [];
 	const maxRanges = Math.min(k, textContent.length); // can't have more ranges than text length.
 	const maxAttempts = 1000;
 	let attempts = 0;
 
 	while (result.length < maxRanges && attempts < maxAttempts) {
-		let start = Math.floor(Math.random() * textContent.length);
-		let end = Math.floor(Math.random() * textContent.length);
-		if (start === end) {
-			// ensure at least length 1
-			end = Math.min(start + 1, textContent.length);
-			start = Math.max(0, start - 1);
-		}
+		const start = Math.floor(Math.random() * textContent.length);
+		const size = Math.floor(Math.random() * (maxRangeSize - minRangeSize + 1)) + minRangeSize;
+		let end = start + size;
 
-		if (start > end) {
-			[start, end] = [end, start];
-		}
+		// Ensure end does not exceed textContent length
+		end = Math.min(end, textContent.length);
 
-		// ensure non-zero length
-		if (end - start < 1) {
+		// Ensure non-zero length and valid range size
+		if (end - start < minRangeSize) {
 			attempts++;
 			continue;
 		}
 
-		// check for overlap
+		// Check for overlap
 		if (result.every(([s, e]) => end <= s || start >= e)) {
 			result.push([start, end]);
 		}
@@ -67,6 +67,6 @@ function randomRanges(textContent: string, k = 1): Array<[number, number]> {
 		attempts++;
 	}
 
-	// sort ranges by start index
+	// Sort ranges by start index.
 	return result.toSorted((a, b) => a[0] - b[0]);
 }

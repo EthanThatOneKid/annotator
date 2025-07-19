@@ -24,37 +24,41 @@
 
 <style>
 	.resource-card {
+		box-sizing: border-box;
 		width: 100%;
 		display: flex;
 		align-items: center;
-		gap: 0.5em;
-		padding: 0.5em;
+		gap: var(--card-gap, 0.75em);
+		padding: 1em;
 		border-radius: 6px;
 		background: var(--card-background);
+		border: 1px solid var(--border-color, #e0e0e0);
+		margin-bottom: 0.75em;
 	}
 
 	.resource-card-grid {
 		display: flex;
 		align-items: center;
-		gap: 0.5em;
+		gap: var(--card-gap, 0.75em);
 		width: 100%;
 	}
 
 	.resource-card-emoji {
-		font-size: 1.5em;
+		font-size: 1.7em;
 		flex-shrink: 0;
-		width: 36px;
+		width: 40px;
 		text-align: center;
 	}
 
 	.resource-card-content {
 		flex: 1;
 		min-width: 0;
+		padding-left: 0.25em;
 	}
 
 	.resource-card-label {
 		font-size: 1.2em;
-		margin: 0 0 0.25em 0;
+		margin: 0 0 0.35em 0;
 	}
 
 	.resource-card-description {
@@ -62,5 +66,7 @@
 		text-overflow: ellipsis;
 		white-space: break-spaces;
 		margin: 0;
+		color: #444;
+		font-size: 1em;
 	}
 </style>
