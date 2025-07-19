@@ -10,23 +10,28 @@ export class CafeService implements AnnotatorService {
 	public static readonly resources: Record<string, Resource> = {
 		'person-1': {
 			resourceId: 'person-1',
-			resourceLabel: 'Angel'
+			emoji: '👨',
+			label: 'Angel C.'
 		},
 		'person-2': {
 			resourceId: 'person-2',
-			resourceLabel: 'John'
+			emoji: '👨',
+			label: 'John M.'
 		},
 		'person-3': {
 			resourceId: 'person-3',
-			resourceLabel: 'Ethan'
+			emoji: '👨',
+			label: 'Ethan D.'
 		},
 		'cafe-1': {
 			resourceId: 'cafe-1',
-			resourceLabel: 'The Lost Bean'
+			emoji: '☕️',
+			label: 'The Lost Bean'
 		},
 		'cafe-2': {
 			resourceId: 'cafe-2',
-			resourceLabel: 'Play Coffee'
+			emoji: '☕️',
+			label: 'Play Coffee'
 		}
 	};
 	public static readonly responses: Record<string, PredictResponse> = {

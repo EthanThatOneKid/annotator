@@ -20,8 +20,9 @@ export interface PredictResponse {
 
 export interface Resource {
 	resourceId: string;
-	resourceLabel?: string;
-	resourceDescription?: string;
+	label?: string;
+	description?: string;
+	emoji?: string;
 }
 
 /**
@@ -64,10 +65,10 @@ export function intersection(annotations: Annotation[], range: Range | null): An
 }
 
 /**
- * applyTopPrediction updates an annotation's reference based on the most
- * confident prediction.
+ * applyConfidentPrediction updates an annotation's reference based on the
+ * most confident prediction.
  */
-export function applyTopPrediction(annotation: Annotation): Annotation {
+export function applyConfidentPrediction(annotation: Annotation): Annotation {
 	if (annotation.reference !== undefined) {
 		return annotation;
 	}

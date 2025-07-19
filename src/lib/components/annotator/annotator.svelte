@@ -7,7 +7,8 @@
 		AnnotatorService,
 		AnnotateResponse
 	} from '$lib/services/annotator/annotator';
-	import { intersection, applyTopPrediction } from '$lib/services/annotator/annotator';
+	import { intersection, applyConfidentPrediction } from '$lib/services/annotator/annotator';
+	import ResourceCard from '$lib/components/resource-card/resource-card.svelte';
 	import { getCaretRange } from './caret';
 
 	let {
@@ -30,7 +31,7 @@
 	const selectedAnnotations = new SvelteSet<Annotation>();
 	const annotatedRanges = new SvelteMap<string, Range>();
 	const annotations = new SvelteMap<string, Annotation>(
-		generated.annotations.map((a) => [a.annotationId, applyTopPrediction(a)])
+		generated.annotations.map((a) => [a.annotationId, applyConfidentPrediction(a)])
 	);
 	const resources = new SvelteMap<string, Resource>(
 		generated.resources.map((r) => [r.resourceId, r])
@@ -65,16 +66,16 @@
 			return;
 		}
 
-		// Create a new annotation object with the updated reference
+		// Create a new annotation object with the updated reference.
 		const updatedAnnotation: Annotation = {
 			...annotation,
 			reference: resourceId
 		};
 
-		// Update both the annotations map and selectedAnnotations set
+		// Update both the annotations map and selectedAnnotations set.
 		annotations.set(annotation.annotationId, updatedAnnotation);
 
-		// Replace the old annotation with the updated one in selectedAnnotations
+		// Replace the old annotation with the updated one in selectedAnnotations.
 		selectedAnnotations.delete(annotation);
 		selectedAnnotations.add(updatedAnnotation);
 	}
@@ -212,41 +213,36 @@
 			<p class="annotation-substring">{substring}</p>
 
 			{#if selectedResource}
-				<!-- TODO: Render resource preview card. -->
-				<p class="resource-label">
-					Selected: {selectedResource.resourceLabel ?? 'Unlabeled resource'}
-				</p>
-
-				<pre><code>{JSON.stringify(selectedResource, null, 2)}</code></pre>
+				<ResourceCard resource={selectedResource} />
 			{:else}
-				<p class="resource-label">No resource selected</p>
+				<p class="resource-label">No resource associated</p>
 			{/if}
 
 			<!-- TODO: Search for other resources.  -->
-			<select
-				value={annotation.reference}
-				onchange={(event) => handleSelectResource(annotation, event)}
-			>
-				<option value="">Select a resource</option>
+			{#if predictions.length > 0}
+				<select
+					name={`select-resource-${annotation.annotationId}`}
+					value={annotation.reference}
+					onchange={(event) => handleSelectResource(annotation, event)}
+				>
+					<option value="">Select a resource</option>
 
-				{#each predictions as prediction (prediction.resourceId)}
-					{@const predictedResource = resources.get(prediction.resourceId)}
-					<option value={prediction.resourceId}>
-						{predictedResource?.resourceLabel ?? 'Unlabeled resource'} ({(
-							prediction.confidence * 100
-						).toFixed(2)}%)
-					</option>
-				{:else}
-					<option value="" disabled>No resources found</option>
-				{/each}
-			</select>
+					{#each predictions as prediction (prediction.resourceId)}
+						{@const predictedResource = resources.get(prediction.resourceId)}
+						{@const confidence = (prediction.confidence * 100).toFixed(2)}
+						<option value={prediction.resourceId}>
+							{predictedResource?.label ?? 'Unlabeled resource'} ({confidence}%)
+						</option>
+					{/each}
+				</select>
+			{/if}
 
 			<!-- TODO: Create a new resource. -->
 
 			<button
 				type="button"
 				class="btn-secondary"
-				onclick={() => handleDismissAnnotation(annotation.annotationId)}>Dismiss</button
+				onclick={() => handleDismissAnnotation(annotation.annotationId)}>Remove</button
 			>
 		</div>
 	{/each}
@@ -278,7 +274,6 @@
 		border: 1px solid #e9ecef;
 		border-radius: 6px;
 		padding: 16px;
-		margin-bottom: 16px;
 		transition: all 0.2s ease;
 	}
 
