@@ -1,10 +1,6 @@
 import nlp from 'compromise';
-import type {
-	AnnotateResponse,
-	Annotation,
-	Annotator,
-	PredictResponse
-} from '$lib/services/annotator/annotator';
+import type { AnnotateResponse, Annotation, Annotator } from '$lib/services/annotator/annotator';
+import type { SemanticSearch, Resource } from '$lib/services/semantic-search/semantic-search';
 
 interface CompromiseCapture {
 	text: string;
@@ -17,7 +13,7 @@ interface CompromiseOffset {
 	length: number;
 }
 
-const patterns = ['topics', 'pronouns'] as const;
+const methods = ['topics', 'pronouns'] as const;
 
 /**
  * CompromiseAnnotator manages annotatioons with Compromise.
@@ -25,35 +21,42 @@ const patterns = ['topics', 'pronouns'] as const;
  * @see https://compromise.cool/
  */
 export class CompromiseAnnotator implements Annotator {
+	public constructor(
+		private readonly semanticSearch: SemanticSearch,
+		private readonly k = 1
+	) {}
+
 	public async annotate(textContent: string): Promise<AnnotateResponse> {
-		await new Promise((resolve) => setTimeout(resolve, 500));
+		const annotations: Annotation[] = [];
+		const resources: Resource[] = [];
 
 		const doc = nlp(textContent);
-		const annotations: Annotation[] = [];
+		for (const method of methods) {
+			const captures: CompromiseCapture[] = doc[method]().json({ offset: true });
+			for (const capture of captures) {
+				const searchResponse = await this.semanticSearch.search(capture.text);
+				for (const prediction of searchResponse.results) {
+					if (
+						resources.some((resource) => resource.resourceId === prediction.resource.resourceId)
+					) {
+						continue;
+					}
 
-		patterns.forEach((pattern) => {
-			const captures: CompromiseCapture[] = doc[pattern]().json({
-				offset: true
-			});
-			captures.forEach((capture) => {
+					resources.push(prediction.resource);
+				}
+
 				annotations.push({
 					annotationId: crypto.randomUUID(),
 					start: capture.offset.start,
-					end: capture.offset.start + capture.offset.length
+					end: capture.offset.start + capture.offset.length,
+					predictions: searchResponse.results.map((prediction) => ({
+						resourceId: prediction.resource.resourceId,
+						confidence: prediction.confidence
+					}))
 				});
-			});
-		});
+			}
+		}
 
-		return {
-			annotations,
-			resources: []
-		};
-	}
-
-	public predict(): PredictResponse {
-		return {
-			predictions: [],
-			resources: []
-		};
+		return { annotations, resources };
 	}
 }

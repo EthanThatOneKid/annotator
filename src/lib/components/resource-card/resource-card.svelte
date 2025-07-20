@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Resource } from '$lib/services/annotator/annotator';
+	import type { Resource } from '$lib/services/semantic-search/semantic-search';
 
 	let {
 		resource,

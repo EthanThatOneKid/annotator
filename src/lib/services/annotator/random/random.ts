@@ -1,36 +1,43 @@
+import type { SemanticSearch, Resource } from '$lib/services/semantic-search/semantic-search';
+import type { AnnotateResponse, Annotator } from '$lib/services/annotator/annotator';
 import type { Annotation } from '$lib/services/annotator/annotator';
-import type {
-	AnnotateResponse,
-	Annotator,
-	PredictResponse
-} from '$lib/services/annotator/annotator';
+import { processSearchResponse } from '$lib/services/annotator/process-search-response';
 
 /**
  * RandomAnnotator generates random annotations.
  */
 export class RandomAnnotator implements Annotator {
-	public constructor(private readonly k: number = 1) {}
+	public constructor(
+		private readonly semanticSearch: SemanticSearch,
+		private readonly k = 1
+	) {}
 
-	public annotate(textContent: string): AnnotateResponse {
-		const annotations = randomRanges(textContent, this.k).map(([start, end]): Annotation => {
-			const annotationId = crypto.randomUUID();
-			return {
-				annotationId,
+	public async annotate(textContent: string): Promise<AnnotateResponse> {
+		const annotations: Annotation[] = [];
+		const resources: Resource[] = [];
+		for (const [start, end] of randomRanges(textContent, this.k)) {
+			const substring = textContent.slice(start, end);
+			const searchResponse = await this.semanticSearch.search(substring);
+			const processedSearchResponse = processSearchResponse(searchResponse);
+			for (const resource of processedSearchResponse.resources) {
+				if (
+					resources.some((existingResource) => existingResource.resourceId === resource.resourceId)
+				) {
+					continue;
+				}
+
+				resources.push(resource);
+			}
+
+			annotations.push({
+				annotationId: crypto.randomUUID(),
 				start,
-				end
-			};
-		});
-		return {
-			annotations,
-			resources: []
-		};
-	}
+				end,
+				predictions: processedSearchResponse.predictions
+			});
+		}
 
-	public predict(): PredictResponse {
-		return {
-			predictions: [],
-			resources: []
-		};
+		return { annotations, resources };
 	}
 }
 
@@ -50,16 +57,16 @@ function randomRanges(
 		const size = Math.floor(Math.random() * (maxRangeSize - minRangeSize + 1)) + minRangeSize;
 		let end = start + size;
 
-		// Ensure end does not exceed textContent length
+		// Ensure end does not exceed textContent length.
 		end = Math.min(end, textContent.length);
 
-		// Ensure non-zero length and valid range size
+		// Ensure non-zero length and valid range size.
 		if (end - start < minRangeSize) {
 			attempts++;
 			continue;
 		}
 
-		// Check for overlap
+		// Check for overlap.
 		if (result.every(([s, e]) => end <= s || start >= e)) {
 			result.push([start, end]);
 		}

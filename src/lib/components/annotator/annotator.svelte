@@ -1,28 +1,26 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-	import type {
-		Annotation,
-		Resource,
-		Annotator,
-		AnnotateResponse
-	} from '$lib/services/annotator/annotator';
+	import type { Annotation, AnnotateResponse } from '$lib/services/annotator/annotator';
+	import type { Resource, SemanticSearch } from '$lib/services/semantic-search/semantic-search';
 	import { intersection, applyConfidentPrediction } from '$lib/services/annotator/annotator';
 	import ResourceCard from '$lib/components/resource-card/resource-card.svelte';
 	import { getCaretRange } from './caret';
+	import { processSearchResponse } from '$lib/services/annotator/process-search-response';
 
 	let {
-		textContent,
+		semanticSearch,
 		generated,
-		service,
+		textContent,
 		highlightKey = 'custom-highlight'
 	}: {
-		service: Annotator;
+		semanticSearch: SemanticSearch;
 		generated: AnnotateResponse;
 		textContent: string;
 		highlightKey?: string;
 	} = $props();
 
+	// TODO: Use Svelte 5 class state for annotator component.
 	let isGenerating = $state(false);
 	let isSelecting = $state(false);
 	let isEditingResource = $state(false);
@@ -97,16 +95,17 @@
 		const range = selection!.getRangeAt(0);
 		const annotationId = crypto.randomUUID();
 		const substring = textContent.slice(range.startOffset, range.endOffset);
-		const response = await service.predict(substring);
+		const searchResponse = await semanticSearch.search(substring);
+		const processedSearchResponse = processSearchResponse(searchResponse);
 		annotations.set(annotationId, {
 			annotationId,
 			start: range.startOffset,
 			end: range.endOffset,
-			predictions: response.predictions
+			predictions: processedSearchResponse.predictions
 		});
 
 		// Update resources with new predictions.
-		response.resources.forEach((resource) => {
+		processedSearchResponse.resources.forEach((resource) => {
 			resources.set(resource.resourceId, resource);
 		});
 
@@ -259,7 +258,9 @@
 	>
 	{#each selectedAnnotations as annotation (annotation.annotationId)}
 		{@const substring = textContent.slice(annotation.start, annotation.end)}
-		{@const predictions = annotation.predictions?.toSorted((a, b) => b.confidence - a.confidence)}
+		{@const predictions = annotation.predictions?.toSorted(
+			(a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)
+		)}
 		{@const selectedResource = annotation.reference
 			? resources.get(annotation.reference)
 			: undefined}
@@ -283,7 +284,10 @@
 
 					{#each predictions as prediction (prediction.resourceId)}
 						{@const predictedResource = resources.get(prediction.resourceId)}
-						{@const confidence = (prediction.confidence * 100).toFixed(2)}
+						{@const confidence =
+							prediction.confidence === undefined
+								? 'N/A'
+								: (prediction.confidence * 100).toFixed(2)}
 						<option value={prediction.resourceId}>
 							{predictedResource?.label ?? 'Unlabeled resource'} ({confidence}%)
 						</option>

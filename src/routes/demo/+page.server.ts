@@ -1,9 +1,9 @@
 import type { PageServerLoad } from './$types';
-import { CafeService } from './cafe';
+import { CafeAnnotator, CafeSemanticSearch } from './cafe';
 
-const service = new CafeService();
+const annotator = new CafeAnnotator();
 
 export const load: PageServerLoad = async () => {
-	const generated = await service.annotate(CafeService.textContent);
-	return { textContent: CafeService.textContent, generated };
+	const generated = await annotator.annotate(CafeSemanticSearch.textContent);
+	return { textContent: CafeSemanticSearch.textContent, generated };
 };

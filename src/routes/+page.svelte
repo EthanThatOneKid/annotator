@@ -28,7 +28,7 @@
 </script>
 
 {#if textContent !== null && generated !== null}
-	<Annotator {textContent} {generated} {service} />
+	<Annotator {textContent} {generated} annotator={service} />
 	<button type="button" onclick={handleGoBack}>Go back</button>
 {:else}
 	<div class="source-input-container">

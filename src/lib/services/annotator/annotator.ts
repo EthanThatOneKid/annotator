@@ -1,26 +1,17 @@
+import type { Resource } from '$lib/services/semantic-search/semantic-search';
+
+// TODO: Consider: Rename Annotator interface to AnnotatorService.
+
 /**
  * Annotator generates suggestions from text.
  */
 export interface Annotator {
 	annotate(textContent: string): AnnotateResponse | Promise<AnnotateResponse>;
-	predict(textContent: string): PredictResponse | Promise<PredictResponse>;
 }
 
 export interface AnnotateResponse {
 	annotations: Annotation[];
 	resources: Resource[];
-}
-
-export interface PredictResponse {
-	predictions: Prediction[];
-	resources: Resource[];
-}
-
-export interface Resource {
-	resourceId: string;
-	label?: string;
-	description?: string;
-	emoji?: string;
 }
 
 /**
@@ -48,7 +39,7 @@ export interface Prediction {
 	/**
 	 * confidence is a value between 0 and 1 indicating the confidence of the prediction.
 	 */
-	confidence: number;
+	confidence?: number;
 }
 
 /**
@@ -76,12 +67,9 @@ export function applyConfidentPrediction(annotation: Annotation): Annotation {
 		return annotation;
 	}
 
-	const inferred = annotation.predictions.toSorted((a, b) => b.confidence - a.confidence).at(0);
-	if (!inferred) {
-		annotation.reference = undefined;
-		return annotation;
-	}
-
-	annotation.reference = inferred.resourceId;
+	const inferred = annotation.predictions
+		.toSorted((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+		.at(0);
+	annotation.reference = inferred?.resourceId;
 	return annotation;
 }

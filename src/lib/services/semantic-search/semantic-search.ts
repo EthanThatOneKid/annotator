@@ -1,7 +1,14 @@
-// TODO: Separate annotator and semantic search services. Annotator composes SemanticSearch.
-
 export interface SemanticSearch {
-	search(textContent: string): Promise<Resource[]>;
+	search(textContent: string): Promise<SearchResponse>;
+}
+
+export interface SearchResponse {
+	results: SearchResponseResult[];
+}
+
+export interface SearchResponseResult {
+	resource: Resource;
+	confidence?: number;
 }
 
 export interface Resource {
