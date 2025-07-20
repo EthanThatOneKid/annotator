@@ -9,7 +9,9 @@
 
 <div class="resource-card">
 	<div class="resource-card-grid">
-		<span class="resource-card-emoji" role="img" aria-label="Resource icon">{resource.emoji}</span>
+		<span class="resource-card-emoji" role="img" aria-label="Resource icon"
+			>{resource.emoji ?? 'ℹ️'}</span
+		>
 		<div class="resource-card-content">
 			<h2 class="resource-card-label">{resource.label ?? 'Unlabeled resource'}</h2>
 			{#if resource.description}
