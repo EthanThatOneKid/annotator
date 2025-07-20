@@ -1,18 +1,17 @@
 <script lang="ts">
-	import type { PageProps } from './$types';
+	import { page } from '$app/state';
 	import type { AnnotateResponse } from '$lib/services/annotator/annotator';
 	import { CompromiseAnnotator } from '$lib/services/annotator/compromise/compromise';
 	import { MediawikiOpensearch } from '$lib/services/semantic-search/mediawiki-opensearch/mediawiki-opensearch';
 	import Annotator from '$lib/components/annotator/annotator.svelte';
 
-	let { data }: PageProps = $props();
-
-	let textContent = $state<string | null>(data.textContent);
+	let textContent = $state<string | null>(null);
 	let generatedAnnotateResponse = $state<AnnotateResponse | null>(null);
 	let isGenerating = $state(false);
 	let isAnnotating = $state(false);
 
 	$effect(() => {
+		textContent ??= page.url.searchParams.get('t');
 		if (!isAnnotating || textContent === null || isGenerating) {
 			return;
 		}

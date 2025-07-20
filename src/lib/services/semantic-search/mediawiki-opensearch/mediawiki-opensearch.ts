@@ -1,7 +1,7 @@
 import type {
-	SemanticSearch,
 	SearchResponse,
-	SearchResponseResult
+	SearchResponseResult,
+	SemanticSearch
 } from '$lib/services/semantic-search/semantic-search.ts';
 
 /**
@@ -79,7 +79,6 @@ export async function searchWikipedia(searchTerm: string): Promise<FormattedOpen
 	// We can format this into a more usable array of objects.
 	const [, titles, descriptions, urls] = data;
 
-	console.log({ data });
 	const formattedResults: FormattedOpenSearchResult[] = titles.map((title, index) => ({
 		title: title,
 		description: descriptions[index],

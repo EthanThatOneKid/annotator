@@ -1,4 +1,4 @@
-import type { SemanticSearch, Resource } from '$lib/services/semantic-search/semantic-search';
+import type { Resource, SemanticSearch } from '$lib/services/semantic-search/semantic-search';
 import type { AnnotateResponse, Annotator } from '$lib/services/annotator/annotator';
 import type { Annotation } from '$lib/services/annotator/annotator';
 import { processSearchResponse } from '$lib/services/annotator/process-search-response';

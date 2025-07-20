@@ -1,6 +1,6 @@
 import nlp from 'compromise';
 import type { AnnotateResponse, Annotation, Annotator } from '$lib/services/annotator/annotator';
-import type { SemanticSearch, Resource } from '$lib/services/semantic-search/semantic-search';
+import type { Resource, SemanticSearch } from '$lib/services/semantic-search/semantic-search';
 
 interface CompromiseCapture {
 	text: string;
@@ -32,7 +32,9 @@ export class CompromiseAnnotator implements Annotator {
 
 		const doc = nlp(textContent);
 		for (const method of methods) {
-			const captures: CompromiseCapture[] = doc[method]().json({ offset: true });
+			const captures: CompromiseCapture[] = doc[method]().json({
+				offset: true
+			});
 			for (const capture of captures) {
 				const searchResponse = await this.semanticSearch.search(capture.text);
 				for (const prediction of searchResponse.results) {

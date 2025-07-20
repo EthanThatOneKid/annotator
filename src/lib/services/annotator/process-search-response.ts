@@ -1,4 +1,4 @@
-import type { SearchResponse, Resource } from '$lib/services/semantic-search/semantic-search';
+import type { Resource, SearchResponse } from '$lib/services/semantic-search/semantic-search';
 import type { Prediction } from '$lib/services/annotator/annotator';
 
 /**
