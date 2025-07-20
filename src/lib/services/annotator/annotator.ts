@@ -62,6 +62,10 @@ export function applyConfidentPrediction(annotation: Annotation): Annotation {
 		return annotation;
 	}
 
+	if (annotation.predictions?.every((p) => p.confidence === undefined)) {
+		return annotation;
+	}
+
 	if (!annotation.predictions || annotation.predictions.length === 0) {
 		annotation.reference = undefined;
 		return annotation;

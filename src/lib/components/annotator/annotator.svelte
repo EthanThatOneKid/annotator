@@ -284,12 +284,11 @@
 
 					{#each predictions as prediction (prediction.resourceId)}
 						{@const predictedResource = resources.get(prediction.resourceId)}
-						{@const confidence =
-							prediction.confidence === undefined
-								? 'N/A'
-								: (prediction.confidence * 100).toFixed(2)}
 						<option value={prediction.resourceId}>
-							{predictedResource?.label ?? 'Unlabeled resource'} ({confidence}%)
+							{predictedResource?.label ?? 'Unlabeled resource'}
+							{#if prediction.confidence !== undefined}
+								{@const confidence = (prediction.confidence * 100).toFixed(2)}
+								({confidence}%){/if}
 						</option>
 					{/each}
 				</select>

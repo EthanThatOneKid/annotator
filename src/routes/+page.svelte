@@ -10,13 +10,16 @@
 	let textContent = $state<string | null>(data.textContent);
 	let generatedAnnotateResponse = $state<AnnotateResponse | null>(null);
 	let isGenerating = $state(false);
+	let isAnnotating = $state(false);
 
 	$effect(() => {
-		if (textContent === null || isGenerating) {
+		if (!isAnnotating || textContent === null || isGenerating) {
 			return;
 		}
 
 		isGenerating = true;
+		isAnnotating = false;
+
 		annotator
 			.annotate(textContent)
 			.then((response) => {
@@ -25,6 +28,13 @@
 			.finally(() => {
 				isGenerating = false;
 			});
+	});
+
+	// Trigger annotation when textContent changes.
+	$effect(() => {
+		if (textContent !== null) {
+			isAnnotating = true;
+		}
 	});
 
 	const semanticSearch = new MediawikiOpensearch();
@@ -40,12 +50,14 @@
 			throw new Error('Text content must be a string');
 		}
 
-		generatedAnnotateResponse = await annotator.annotate(currentText);
 		textContent = currentText;
+		isAnnotating = true;
 	}
 
 	function handleGoBack() {
 		textContent = null;
+		generatedAnnotateResponse = null;
+		isAnnotating = false;
 	}
 </script>
 

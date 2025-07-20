@@ -1,6 +1,7 @@
 import type {
 	SemanticSearch,
-	SearchResponse
+	SearchResponse,
+	SearchResponseResult
 } from '$lib/services/semantic-search/semantic-search.ts';
 
 /**
@@ -10,13 +11,15 @@ import type {
 export class MediawikiOpensearch implements SemanticSearch {
 	public async search(textContent: string): Promise<SearchResponse> {
 		const searchResults = await searchWikipedia(textContent);
-		const results = searchResults.map((result) => ({
-			resource: {
-				resourceId: encodeURIComponent(result.url),
-				title: result.title,
-				description: result.description
-			}
-		}));
+		const results = searchResults.map(
+			(result): SearchResponseResult => ({
+				resource: {
+					resourceId: encodeURIComponent(result.url),
+					label: result.title,
+					description: result.description
+				}
+			})
+		);
 
 		return { results };
 	}
