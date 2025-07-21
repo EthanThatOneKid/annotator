@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type { Annotation, AnnotateResponse } from '$lib/services/annotator/annotator';
 	import type { Resource, SemanticSearch } from '$lib/services/semantic-search/semantic-search';
@@ -11,7 +11,7 @@
 	let {
 		semanticSearch,
 		generated,
-		textContent,
+		textContent = $bindable(),
 		highlightKey = 'custom-highlight'
 	}: {
 		semanticSearch: SemanticSearch;
@@ -25,7 +25,7 @@
 	let isSelecting = $state(false);
 	let isEditingResource = $state(false);
 	let caretRange = $state<Range | null>(null);
-	let dialogElement = $state<HTMLDialogElement | null>(null);
+	let isModalOpen = $state(false);
 	let textContainerElement = $state<HTMLDivElement | null>(null);
 	const selectedAnnotations = new SvelteSet<Annotation>();
 	const annotatedRanges = new SvelteMap<string, Range>();
@@ -44,9 +44,29 @@
 	// TODO: Add a new button to the dialog that allows the user to create a new resource. This triggers a new form element to appear where the user can submit a new resource or cancel their resource draft.
 	// TODO: Manage state history and support undo/redo for annotations.
 
-	onMount(async () => {
+	onMount(() => {
 		// Add selection change listener.
 		document.addEventListener('selectionchange', handleSelectionChange);
+
+		// Watch dialog open state to disable/enable scroll
+		const observer = new MutationObserver(() => {
+			if (isModalOpen) {
+				document.documentElement.style.overflow = 'hidden';
+				document.body.style.overflow = 'hidden';
+			} else {
+				document.documentElement.style.overflow = '';
+				document.body.style.overflow = '';
+			}
+		});
+		if (isModalOpen) {
+			observer.observe(document.documentElement, { attributes: true, attributeFilter: ['open'] });
+		}
+
+		onDestroy(() => {
+			observer.disconnect();
+			document.documentElement.style.overflow = '';
+			document.body.style.overflow = '';
+		});
 	});
 
 	$effect(() => {
@@ -153,13 +173,13 @@
 			selectedAnnotations.add(annotation);
 		});
 		if (selectedAnnotations.size === 0) {
-			// No annotations at the caret position, so close the dialog.
-			closeDialog();
+			// No annotations at the caret position, so close the modal.
+			closeModal();
 			return;
 		}
 
-		// Open the dialog.
-		dialogElement?.showModal();
+		// Open the modal.
+		openModal();
 		return;
 	}
 
@@ -172,12 +192,15 @@
 
 	function handleDismissAnnotation(annotationId: string) {
 		annotations.delete(annotationId);
-		closeDialog();
+		closeModal();
 	}
 
-	function closeDialog() {
+	function openModal() {
+		isModalOpen = true;
+	}
+	function closeModal() {
 		caretRange = null;
-		dialogElement?.close();
+		isModalOpen = false;
 	}
 
 	function handleAddResource(annotation: Annotation) {
@@ -232,7 +255,7 @@
 
 <div
 	bind:this={textContainerElement}
-	class="highlightable-text"
+	class="highlightable-text mx-auto my-8 min-h-[3rem] max-w-2xl rounded-xl border border-gray-200 bg-white px-8 py-6 text-center text-xl font-medium shadow-md"
 	onclick={handleTextClick}
 	role="textbox"
 	tabindex="0"
@@ -241,115 +264,136 @@
 	{textContent}
 </div>
 
-{#if isSelecting}
-	<button type="button" onclick={handleHighlight}>Highlight</button>
-{/if}
+<button
+	type="button"
+	onclick={handleHighlight}
+	class="mt-2 rounded-lg bg-green-700 px-5 py-2 text-lg font-semibold text-white shadow transition hover:bg-green-800"
+	class:hidden={!isSelecting}
+>
+	Highlight
+</button>
 
-{#if isGenerating}
-	<div class="spinner-container">
-		<div class="spinner"></div>
-		<span>Loading annotations&hellip;</span>
+<div class="flex flex-col items-center justify-center py-8" class:hidden={!isGenerating}>
+	<div
+		class="mb-3 h-8 w-8 animate-spin rounded-full border-t-4 border-solid border-green-700"
+	></div>
+	<span class="text-lg text-gray-600">Loading annotations&hellip;</span>
+</div>
+
+{#if isModalOpen && selectedAnnotations.size > 0}
+	<div class="fixed inset-0 z-10 flex items-center justify-center">
+		<div
+			class="fixed inset-0 bg-gray-500/75 transition-opacity"
+			aria-hidden="true"
+			onclick={closeModal}
+		></div>
+		<div
+			class="relative z-20 flex min-h-full w-full items-end justify-center p-4 text-center sm:items-center sm:p-0"
+		>
+			<div
+				class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg"
+			>
+				<div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+					<button
+						type="button"
+						class="absolute top-2 right-2 text-2xl font-bold text-gray-400 hover:text-gray-600"
+						aria-label="Close"
+						onclick={closeModal}>&times;</button
+					>
+					{#each selectedAnnotations as annotation (annotation.annotationId)}
+						{@const substring = textContent.slice(annotation.start, annotation.end)}
+						{@const predictions = annotation.predictions?.toSorted(
+							(a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)
+						)}
+						{@const selectedResource = annotation.reference
+							? resources.get(annotation.reference)
+							: undefined}
+						<div class="annotation-metadata">
+							<p class="annotation-substring">{substring}</p>
+							{#if selectedResource}
+								<ResourceCard resource={selectedResource} />
+							{:else}
+								<p class="resource-label">No resource associated</p>
+							{/if}
+							{#if predictions && predictions.length > 0}
+								<select
+									name={`select-resource-${annotation.annotationId}`}
+									value={annotation.reference}
+									onchange={(event) => handleSelectResource(annotation, event)}
+								>
+									<option value="">Select a resource</option>
+									{#each predictions as prediction (prediction.resourceId)}
+										{@const predictedResource = resources.get(prediction.resourceId)}
+										<option value={prediction.resourceId}>
+											{predictedResource?.label ?? 'Unlabeled resource'}
+											{#if prediction.confidence !== undefined}
+												{@const confidence = (prediction.confidence * 100).toFixed(2)}
+												({confidence}%){/if}
+										</option>
+									{/each}
+								</select>
+							{/if}
+							{#if isEditingResource && activeAnnotation?.annotationId === annotation.annotationId}
+								<div class="resource-dialog">
+									<input
+										type="text"
+										class="resource-label-input"
+										placeholder="Resource label"
+										bind:value={resourceDraft.label}
+									/>
+									<textarea
+										class="resource-description-input"
+										placeholder="Resource description"
+										bind:value={resourceDraft.description}
+									></textarea>
+									<input
+										type="text"
+										maxlength="2"
+										class="resource-label-input"
+										placeholder="Emoji (optional)"
+										bind:value={resourceDraft.emoji}
+									/>
+									{#if resourceDraftError}
+										<p style="color: #c00; font-size: 13px; margin: 0 0 8px 0;">
+											{resourceDraftError}
+										</p>
+									{/if}
+									<div class="resource-dialog-actions">
+										<button type="button" class="btn-primary" onclick={handleSubmitResourceDraft}
+											>Submit</button
+										>
+										<button type="button" class="btn-secondary" onclick={handleCancelResourceDraft}
+											>Cancel</button
+										>
+									</div>
+								</div>
+							{:else}
+								<button
+									type="button"
+									class="btn-add-resource"
+									onclick={() => handleAddResource(annotation)}
+								>
+									Create resource
+								</button>
+							{/if}
+							<button
+								type="button"
+								class="btn-secondary mt-2"
+								onclick={() => handleDismissAnnotation(annotation.annotationId)}
+							>
+								Remove
+							</button>
+						</div>
+					{/each}
+				</div>
+			</div>
+		</div>
 	</div>
 {/if}
-
-<dialog class="annotations-dialog" bind:this={dialogElement} closedby="any">
-	<button type="button" class="dialog-close-btn" aria-label="Close" onclick={() => closeDialog()}
-		>&times;</button
-	>
-	{#each selectedAnnotations as annotation (annotation.annotationId)}
-		{@const substring = textContent.slice(annotation.start, annotation.end)}
-		{@const predictions = annotation.predictions?.toSorted(
-			(a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)
-		)}
-		{@const selectedResource = annotation.reference
-			? resources.get(annotation.reference)
-			: undefined}
-		<div class="annotation-metadata">
-			<p class="annotation-substring">{substring}</p>
-
-			{#if selectedResource}
-				<ResourceCard resource={selectedResource} />
-			{:else}
-				<p class="resource-label">No resource associated</p>
-			{/if}
-
-			<!-- TODO: Search for other resources.  -->
-			{#if predictions && predictions.length > 0}
-				<select
-					name={`select-resource-${annotation.annotationId}`}
-					value={annotation.reference}
-					onchange={(event) => handleSelectResource(annotation, event)}
-				>
-					<option value="">Select a resource</option>
-
-					{#each predictions as prediction (prediction.resourceId)}
-						{@const predictedResource = resources.get(prediction.resourceId)}
-						<option value={prediction.resourceId}>
-							{predictedResource?.label ?? 'Unlabeled resource'}
-							{#if prediction.confidence !== undefined}
-								{@const confidence = (prediction.confidence * 100).toFixed(2)}
-								({confidence}%){/if}
-						</option>
-					{/each}
-				</select>
-			{/if}
-
-			<!-- Add new resource button and form -->
-			{#if isEditingResource && activeAnnotation?.annotationId === annotation.annotationId}
-				<div class="resource-dialog">
-					<input
-						type="text"
-						class="resource-label-input"
-						placeholder="Resource label"
-						bind:value={resourceDraft.label}
-					/>
-					<textarea
-						class="resource-description-input"
-						placeholder="Resource description"
-						bind:value={resourceDraft.description}
-					></textarea>
-					<input
-						type="text"
-						maxlength="2"
-						class="resource-label-input"
-						placeholder="Emoji (optional)"
-						bind:value={resourceDraft.emoji}
-					/>
-					{#if resourceDraftError}
-						<p style="color: #c00; font-size: 13px; margin: 0 0 8px 0;">{resourceDraftError}</p>
-					{/if}
-					<div class="resource-dialog-actions">
-						<button type="button" class="btn-primary" onclick={handleSubmitResourceDraft}
-							>Submit</button
-						>
-						<button type="button" class="btn-secondary" onclick={handleCancelResourceDraft}
-							>Cancel</button
-						>
-					</div>
-				</div>
-			{:else}
-				<button
-					type="button"
-					class="btn-add-resource"
-					onclick={() => handleAddResource(annotation)}
-				>
-					+ Create new resource
-				</button>
-			{/if}
-
-			<button
-				type="button"
-				class="btn-secondary"
-				onclick={() => handleDismissAnnotation(annotation.annotationId)}>Remove</button
-			>
-		</div>
-	{/each}
-</dialog>
 
 <style>
 	::highlight(custom-highlight) {
 		background: rgba(255, 255, 0, 0.5);
-		cursor: pointer; /* This doesn't do anything AFAICT. */
 	}
 
 	.highlightable-text {
@@ -360,7 +404,6 @@
 	.annotations-dialog {
 		border: 1px solid #ccc;
 		border-radius: 8px;
-		padding: 20px;
 		max-width: 400px;
 		background: white;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
