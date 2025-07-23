@@ -4,9 +4,9 @@
 	import type { Annotation, AnnotateResponse } from '$lib/services/annotator/annotator';
 	import type { Resource, SemanticSearch } from '$lib/services/semantic-search/semantic-search';
 	import { intersection, applyConfidentPrediction } from '$lib/services/annotator/annotator';
+	import { processSearchResponse } from '$lib/services/annotator/process-search-response';
 	import ResourceCard from '$lib/components/resource-card/resource-card.svelte';
 	import { getCaretRange } from './caret';
-	import { processSearchResponse } from '$lib/services/annotator/process-search-response';
 
 	let {
 		semanticSearch,
