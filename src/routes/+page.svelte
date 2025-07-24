@@ -78,99 +78,300 @@
 	}
 </script>
 
-<section
-	class="relative flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-green-50 to-white"
->
-	<div class="w-full max-w-xl rounded-xl bg-white p-8 shadow-lg">
-		<h1 class="mb-4 text-center text-4xl font-extrabold tracking-tight text-green-800">
-			Annotator
-		</h1>
+<section class="hero-section">
+	<div class="hero-content">
+		<h1 class="hero-title">Annotator</h1>
 
-		<p class="mb-8 text-center text-lg text-gray-600">
-			Highlight, annotate, and link resources to your text with ease.
-		</p>
+		<p class="hero-subtitle">Highlight, annotate, and link resources to your text with ease.</p>
 
 		{#if !isGenerating}
 			{#if textContent !== null && generatedAnnotateResponse !== null}
-				<div class="flex flex-col items-center justify-center">
+				<div class="annotator-container">
 					<Annotator bind:textContent generated={generatedAnnotateResponse} {semanticSearch} />
 
-					<button
-						type="button"
-						onclick={handleGoBack}
-						class="mt-6 rounded-lg border border-gray-300 bg-gray-100 px-6 py-2 text-lg font-medium transition hover:bg-gray-200"
-						>Go back</button
-					>
+					<button type="button" onclick={handleGoBack} class="go-back-button">Go back</button>
 				</div>
 			{:else}
-				<form onsubmit={handleFormSubmit} class="flex flex-col gap-4">
+				<form onsubmit={handleFormSubmit} class="text-form">
 					<textarea
 						rows="5"
 						cols="40"
 						name="textContent"
 						placeholder="Type or edit text here..."
-						class="resize-vertical w-full rounded-lg border border-gray-300 bg-gray-50 p-4 text-lg shadow-inner focus:ring-2 focus:ring-green-700 focus:outline-none"
-						>{textContent}</textarea
+						class="text-area">{textContent}</textarea
 					>
-					<button
-						type="submit"
-						class="self-end rounded-lg bg-green-700 px-6 py-2 text-lg font-semibold text-white shadow transition hover:bg-green-800"
-						>Submit</button
-					>
+					<button type="submit" class="submit-button">Submit</button>
 				</form>
 			{/if}
 		{:else}
-			<div class="flex flex-col items-center justify-center py-12">
-				<div
-					class="mb-4 h-10 w-10 animate-spin rounded-full border-t-4 border-solid border-green-700"
-				></div>
-				<span class="text-lg text-gray-600">Loading annotations&hellip;</span>
+			<div class="loading-container">
+				<div class="spinner"></div>
+				<span class="loading-text">Loading annotations&hellip;</span>
 			</div>
 		{/if}
 	</div>
 
 	<!-- Scroll for more info -->
-	<div class="absolute bottom-8 left-1/2 flex -translate-x-1/2 transform flex-col items-center">
-		<span class="mb-2 text-sm text-gray-400">Scroll for more info</span>
-		<svg
-			class="h-6 w-6 animate-bounce text-green-700"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			viewBox="0 0 24 24"
+	<div class="scroll-indicator">
+		<span class="scroll-text">Scroll for more info</span>
+		<svg class="scroll-arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
 			><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg
 		>
 	</div>
 </section>
 
 <!-- Info Section -->
-<section class="bg-white px-4 py-20">
-	<div class="mx-auto max-w-3xl text-center">
-		<h2 class="mb-4 text-2xl font-bold text-green-800">How it works</h2>
-		<p class="mb-6 text-gray-600">
+<section class="info-section">
+	<div class="info-content">
+		<h2 class="info-title">How it works</h2>
+		<p class="info-text">
 			Paste or type your text above, highlight entities or topics, and link them to resources. Use
 			the annotation dialog to manage and create new resources. Perfect for research, study, or
 			content enrichment.
 		</p>
-		<div class="flex flex-col justify-center gap-8 md:flex-row">
-			<div class="flex-1 rounded-lg bg-green-50 p-6 shadow">
-				<h3 class="mb-2 text-lg font-semibold text-green-700">Smart Highlighting</h3>
-				<p class="text-gray-600">
+		<div class="features-grid">
+			<div class="feature-card">
+				<h3 class="feature-title">Smart Highlighting</h3>
+				<p class="feature-text">
 					Automatically detect and highlight key entities and topics in your text.
 				</p>
 			</div>
-			<div class="flex-1 rounded-lg bg-green-50 p-6 shadow">
-				<h3 class="mb-2 text-lg font-semibold text-green-700">Resource Linking</h3>
-				<p class="text-gray-600">
+			<div class="feature-card">
+				<h3 class="feature-title">Resource Linking</h3>
+				<p class="feature-text">
 					Associate highlights with resources, such as Wikipedia articles or your own notes.
 				</p>
 			</div>
-			<div class="flex-1 rounded-lg bg-green-50 p-6 shadow">
-				<h3 class="mb-2 text-lg font-semibold text-green-700">Easy Management</h3>
-				<p class="text-gray-600">
+			<div class="feature-card">
+				<h3 class="feature-title">Easy Management</h3>
+				<p class="feature-text">
 					Edit, remove, or create new resources directly from the annotation dialog.
 				</p>
 			</div>
 		</div>
 	</div>
 </section>
+
+<style>
+	.hero-section {
+		position: relative;
+		display: flex;
+		min-height: 100vh;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		background-image: linear-gradient(to bottom, #f0fdf4, #ffffff);
+	}
+
+	.hero-content {
+		width: 100%;
+		max-width: 42rem;
+		border-radius: 0.75rem;
+		background-color: #ffffff;
+		padding: 2rem;
+		box-shadow:
+			0 10px 15px -3px rgba(0, 0, 0, 0.1),
+			0 4px 6px -2px rgba(0, 0, 0, 0.05);
+	}
+
+	.hero-title {
+		margin-bottom: 1rem;
+		text-align: center;
+		font-size: 2.25rem;
+		font-weight: 800;
+		letter-spacing: -0.025em;
+		color: #166534;
+	}
+
+	.hero-subtitle {
+		margin-bottom: 2rem;
+		text-align: center;
+		font-size: 1.25rem;
+		color: #4b5563;
+	}
+
+	.annotator-container {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.go-back-button {
+		margin-top: 1.5rem;
+		border-radius: 0.5rem;
+		border: 1px solid #d1d5db;
+		background-color: #f3f4f6;
+		padding: 0.5rem 1.5rem;
+		font-size: 1.125rem;
+		font-weight: 500;
+		transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.go-back-button:hover {
+		background-color: #e5e7eb;
+	}
+
+	.text-form {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.text-area {
+		resize: vertical;
+		width: 100%;
+		border-radius: 0.5rem;
+		border: 1px solid #d1d5db;
+		background-color: #f9fafb;
+		padding: 1rem;
+		font-size: 1.125rem;
+		box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+	}
+
+	.text-area:focus {
+		outline: 2px solid transparent;
+		outline-offset: 2px;
+		box-shadow: 0 0 0 2px #15803d;
+	}
+
+	.submit-button {
+		align-self: flex-end;
+		border-radius: 0.5rem;
+		background-color: #15803d;
+		padding: 0.5rem 1.5rem;
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: #ffffff;
+		box-shadow:
+			0 1px 3px 0 rgba(0, 0, 0, 0.1),
+			0 1px 2px 0 rgba(0, 0, 0, 0.06);
+		transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.submit-button:hover {
+		background-color: #166534;
+	}
+
+	.loading-container {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 3rem 0;
+	}
+
+	.spinner {
+		margin-bottom: 1rem;
+		height: 2.5rem;
+		width: 2.5rem;
+		animation: spin 1s linear infinite;
+		border-radius: 9999px;
+		border-top-width: 4px;
+		border-style: solid;
+		border-color: #15803d;
+	}
+
+	.loading-text {
+		font-size: 1.125rem;
+		color: #4b5563;
+	}
+
+	.scroll-indicator {
+		position: absolute;
+		bottom: 2rem;
+		left: 50%;
+		transform: translateX(-50%);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.scroll-text {
+		margin-bottom: 0.5rem;
+		font-size: 0.875rem;
+		color: #9ca3af;
+	}
+
+	.scroll-arrow {
+		height: 1.5rem;
+		width: 1.5rem;
+		animation: bounce 1s infinite;
+		color: #15803d;
+	}
+
+	.info-section {
+		background-color: #ffffff;
+		padding: 5rem 1rem;
+	}
+
+	.info-content {
+		margin: 0 auto;
+		max-width: 56rem;
+		text-align: center;
+	}
+
+	.info-title {
+		margin-bottom: 1rem;
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: #166534;
+	}
+
+	.info-text {
+		margin-bottom: 1.5rem;
+		color: #4b5563;
+	}
+
+	.features-grid {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 2rem;
+	}
+
+	@media (min-width: 768px) {
+		.features-grid {
+			flex-direction: row;
+		}
+	}
+
+	.feature-card {
+		flex: 1;
+		border-radius: 0.5rem;
+		background-color: #f0fdf4;
+		padding: 1.5rem;
+		box-shadow:
+			0 4px 6px -1px rgba(0, 0, 0, 0.1),
+			0 2px 4px -1px rgba(0, 0, 0, 0.05);
+	}
+
+	.feature-title {
+		margin-bottom: 0.5rem;
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: #15803d;
+	}
+
+	.feature-text {
+		color: #4b5563;
+	}
+
+	@keyframes bounce {
+		0%,
+		100% {
+			transform: translateY(-25%);
+			animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+		}
+		50% {
+			transform: translateY(0);
+			animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+		}
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+</style>

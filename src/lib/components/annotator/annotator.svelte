@@ -24,6 +24,7 @@
 	let isGenerating = $state(false);
 	let isSelecting = $state(false);
 	let isEditingResource = $state(false);
+	let dialogElement = $state<HTMLDialogElement | null>(null);
 	let caretRange = $state<Range | null>(null);
 	let isModalOpen = $state(false);
 	let textContainerElement = $state<HTMLDivElement | null>(null);
@@ -197,10 +198,13 @@
 
 	function openModal() {
 		isModalOpen = true;
+		dialogElement?.showModal();
 	}
+
 	function closeModal() {
 		caretRange = null;
 		isModalOpen = false;
+		dialogElement?.close();
 	}
 
 	function handleAddResource(annotation: Annotation) {
@@ -255,7 +259,7 @@
 
 <div
 	bind:this={textContainerElement}
-	class="highlightable-text mx-auto my-8 min-h-[3rem] max-w-2xl rounded-xl border border-gray-200 bg-white px-8 py-6 text-center text-xl font-medium shadow-md"
+	class="text-container"
 	onclick={handleTextClick}
 	role="textbox"
 	tabindex="0"
@@ -267,147 +271,261 @@
 <button
 	type="button"
 	onclick={handleHighlight}
-	class="mt-2 rounded-lg bg-green-700 px-5 py-2 text-lg font-semibold text-white shadow transition hover:bg-green-800"
+	class="highlight-button"
 	class:hidden={!isSelecting}
 >
 	Highlight
 </button>
 
-<div class="flex flex-col items-center justify-center py-8" class:hidden={!isGenerating}>
-	<div
-		class="mb-3 h-8 w-8 animate-spin rounded-full border-t-4 border-solid border-green-700"
-	></div>
-	<span class="text-lg text-gray-600">Loading annotations&hellip;</span>
+<div class="loading-container" class:hidden={!isGenerating}>
+	<div class="spinner"></div>
+	<span class="loading-text">Loading annotations&hellip;</span>
 </div>
 
-{#if isModalOpen && selectedAnnotations.size > 0}
-	<div class="fixed inset-0 z-10 flex items-center justify-center">
-		<div
-			class="fixed inset-0 bg-gray-500/75 transition-opacity"
-			aria-hidden="true"
-			onclick={closeModal}
-		></div>
-		<div
-			class="relative z-20 flex min-h-full w-full items-end justify-center p-4 text-center sm:items-center sm:p-0"
-		>
-			<div
-				class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg"
-			>
-				<div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-					<button
-						type="button"
-						class="absolute top-2 right-2 text-2xl font-bold text-gray-400 hover:text-gray-600"
-						aria-label="Close"
-						onclick={closeModal}>&times;</button
-					>
-					{#each selectedAnnotations as annotation (annotation.annotationId)}
-						{@const substring = textContent.slice(annotation.start, annotation.end)}
-						{@const predictions = annotation.predictions?.toSorted(
-							(a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)
-						)}
-						{@const selectedResource = annotation.reference
-							? resources.get(annotation.reference)
-							: undefined}
-						<div class="annotation-metadata">
-							<p class="annotation-substring">{substring}</p>
-							{#if selectedResource}
-								<ResourceCard resource={selectedResource} />
-							{:else}
-								<p class="resource-label">No resource associated</p>
-							{/if}
-							{#if predictions && predictions.length > 0}
-								<select
-									name={`select-resource-${annotation.annotationId}`}
-									value={annotation.reference}
-									onchange={(event) => handleSelectResource(annotation, event)}
-								>
-									<option value="">Select a resource</option>
-									{#each predictions as prediction (prediction.resourceId)}
-										{@const predictedResource = resources.get(prediction.resourceId)}
-										<option value={prediction.resourceId}>
-											{predictedResource?.label ?? 'Unlabeled resource'}
-											{#if prediction.confidence !== undefined}
-												{@const confidence = (prediction.confidence * 100).toFixed(2)}
-												({confidence}%){/if}
-										</option>
-									{/each}
-								</select>
-							{/if}
-							{#if isEditingResource && activeAnnotation?.annotationId === annotation.annotationId}
-								<div class="resource-dialog">
-									<input
-										type="text"
-										class="resource-label-input"
-										placeholder="Resource label"
-										bind:value={resourceDraft.label}
-									/>
-									<textarea
-										class="resource-description-input"
-										placeholder="Resource description"
-										bind:value={resourceDraft.description}
-									></textarea>
-									<input
-										type="text"
-										maxlength="2"
-										class="resource-label-input"
-										placeholder="Emoji (optional)"
-										bind:value={resourceDraft.emoji}
-									/>
-									{#if resourceDraftError}
-										<p style="color: #c00; font-size: 13px; margin: 0 0 8px 0;">
-											{resourceDraftError}
-										</p>
-									{/if}
-									<div class="resource-dialog-actions">
-										<button type="button" class="btn-primary" onclick={handleSubmitResourceDraft}
-											>Submit</button
-										>
-										<button type="button" class="btn-secondary" onclick={handleCancelResourceDraft}
-											>Cancel</button
-										>
-									</div>
+<dialog bind:this={dialogElement} id="annotation-dialog" class="dialog-overlay" closedby="any">
+	<div class="dialog-backdrop" aria-hidden="true" onclick={closeModal}></div>
+	<div class="dialog-container">
+		<div class="dialog-content">
+			<div class="dialog-body">
+				<button type="button" class="dialog-close-button" aria-label="Close" onclick={closeModal}
+					>&times;</button
+				>
+				{#each selectedAnnotations as annotation (annotation.annotationId)}
+					{@const substring = textContent.slice(annotation.start, annotation.end)}
+					{@const predictions = annotation.predictions?.toSorted(
+						(a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)
+					)}
+					{@const selectedResource = annotation.reference
+						? resources.get(annotation.reference)
+						: undefined}
+					<div class="annotation-metadata">
+						<p class="annotation-substring">{substring}</p>
+						{#if selectedResource}
+							<ResourceCard resource={selectedResource} />
+						{:else}
+							<p class="resource-label">No resource associated</p>
+						{/if}
+						{#if predictions && predictions.length > 0}
+							<select
+								name={`select-resource-${annotation.annotationId}`}
+								value={annotation.reference}
+								onchange={(event) => handleSelectResource(annotation, event)}
+							>
+								<option value="">Select a resource</option>
+								{#each predictions as prediction (prediction.resourceId)}
+									{@const predictedResource = resources.get(prediction.resourceId)}
+									<option value={prediction.resourceId}>
+										{predictedResource?.label ?? 'Unlabeled resource'}
+										{#if prediction.confidence !== undefined}
+											{@const confidence = (prediction.confidence * 100).toFixed(2)}
+											({confidence}%)
+										{/if}
+									</option>
+								{/each}
+							</select>
+						{/if}
+						{#if isEditingResource && activeAnnotation?.annotationId === annotation.annotationId}
+							<div class="resource-dialog">
+								<input
+									type="text"
+									class="resource-label-input"
+									placeholder="Resource label"
+									bind:value={resourceDraft.label}
+								/>
+								<textarea
+									class="resource-description-input"
+									placeholder="Resource description"
+									bind:value={resourceDraft.description}
+								></textarea>
+								<input
+									type="text"
+									maxlength="2"
+									class="resource-label-input"
+									placeholder="Emoji (optional)"
+									bind:value={resourceDraft.emoji}
+								/>
+								{#if resourceDraftError}
+									<p style="color: #c00; font-size: 13px; margin: 0 0 8px 0;">
+										{resourceDraftError}
+									</p>
+								{/if}
+								<div class="resource-dialog-actions">
+									<button type="button" class="btn-primary" onclick={handleSubmitResourceDraft}
+										>Submit</button
+									>
+									<button type="button" class="btn-secondary" onclick={handleCancelResourceDraft}
+										>Cancel</button
+									>
 								</div>
-							{:else}
-								<button
-									type="button"
-									class="btn-add-resource"
-									onclick={() => handleAddResource(annotation)}
-								>
-									Create resource
-								</button>
-							{/if}
+							</div>
+						{:else}
 							<button
 								type="button"
-								class="btn-secondary mt-2"
-								onclick={() => handleDismissAnnotation(annotation.annotationId)}
+								class="btn-add-resource"
+								onclick={() => handleAddResource(annotation)}>Create resource</button
 							>
-								Remove
-							</button>
-						</div>
-					{/each}
-				</div>
+						{/if}
+						<button
+							type="button"
+							class="btn-secondary"
+							onclick={() => handleDismissAnnotation(annotation.annotationId)}>Remove</button
+						>
+					</div>
+				{/each}
 			</div>
 		</div>
 	</div>
-{/if}
+</dialog>
 
 <style>
-	::highlight(custom-highlight) {
-		background: rgba(255, 255, 0, 0.5);
-	}
-
-	.highlightable-text {
+	.text-container {
+		margin: 2rem auto;
+		min-height: 3rem;
+		max-width: 42rem;
+		border-radius: 0.75rem;
+		border: 1px solid #e5e7eb;
+		background-color: #ffffff;
+		padding: 1.5rem 2rem;
+		text-align: center;
+		font-size: 1.25rem;
+		font-weight: 500;
+		box-shadow:
+			0 4px 6px -1px rgba(0, 0, 0, 0.1),
+			0 2px 4px -1px rgba(0, 0, 0, 0.06);
 		white-space: pre-wrap;
 		outline: none;
 	}
 
-	.annotations-dialog {
-		border: 1px solid #ccc;
-		border-radius: 8px;
-		max-width: 400px;
-		background: white;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	.highlight-button {
+		margin-top: 0.5rem;
+		border-radius: 0.5rem;
+		background-color: #15803d;
+		padding: 0.5rem 1.25rem;
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: #ffffff;
+		box-shadow:
+			0 1px 3px 0 rgba(0, 0, 0, 0.1),
+			0 1px 2px 0 rgba(0, 0, 0, 0.06);
+		transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.highlight-button:hover {
+		background-color: #166534;
+	}
+
+	.loading-container {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem 0;
+	}
+
+	.spinner {
+		margin-bottom: 0.75rem;
+		height: 2rem;
+		width: 2rem;
+		animation: spin 1s linear infinite;
+		border-radius: 9999px;
+		border-top-width: 4px;
+		border-style: solid;
+		border-color: #15803d;
+	}
+
+	.loading-text {
+		font-size: 1.125rem;
+		color: #4b5563;
+	}
+
+	.dialog-overlay {
+		position: fixed;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		z-index: 10;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.dialog-backdrop {
+		position: fixed;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		background-color: rgba(107, 114, 128, 0.75);
+		transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.dialog-container {
+		position: relative;
+		z-index: 20;
+		display: flex;
+		min-height: 100%;
+		width: 100%;
+		align-items: flex-end;
+		justify-content: center;
+		padding: 1rem;
+		text-align: center;
+	}
+
+	@media (min-width: 640px) {
+		.dialog-container {
+			align-items: center;
+			padding: 0;
+		}
+	}
+
+	.dialog-content {
+		position: relative;
+		transform: translate(0, 0) rotate(0) skewX(0) skewY(0) scaleX(1) scaleY(1);
+		overflow: hidden;
+		border-radius: 0.5rem;
+		background-color: #ffffff;
+		text-align: left;
+		box-shadow:
+			0 20px 25px -5px rgba(0, 0, 0, 0.1),
+			0 10px 10px -5px rgba(0, 0, 0, 0.04);
+		transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	@media (min-width: 640px) {
+		.dialog-content {
+			margin: 2rem 0;
+			width: 100%;
+			max-width: 32rem;
+		}
+	}
+
+	.dialog-body {
+		background-color: #ffffff;
+		padding: 1.25rem 1rem 1rem;
+	}
+
+	@media (min-width: 640px) {
+		.dialog-body {
+			padding: 1.5rem 1.5rem 1rem;
+		}
+	}
+
+	.dialog-close-button {
+		position: absolute;
+		top: 0.5rem;
+		right: 0.5rem;
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: #9ca3af;
+	}
+
+	.dialog-close-button:hover {
+		color: #4b5563;
+	}
+
+	::highlight(custom-highlight) {
+		background: rgba(255, 255, 0, 0.5);
 	}
 
 	.annotation-metadata {
@@ -457,39 +575,6 @@
 		outline: none;
 		border-color: #007bff;
 		box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-	}
-
-	.annotations-dialog > button:last-child {
-		background: #6c757d;
-		color: white;
-		border: none;
-		border-radius: 4px;
-		padding: 10px 20px;
-		font-size: 14px;
-		cursor: pointer;
-		transition: background-color 0.2s ease;
-		width: 100%;
-		margin-top: 8px;
-	}
-
-	.annotations-dialog > button:last-child:hover {
-		background: #5a6268;
-	}
-
-	.spinner-container {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		margin-bottom: 1em;
-	}
-
-	.spinner {
-		width: 24px;
-		height: 24px;
-		border: 4px solid #ccc;
-		border-top: 4px solid #333;
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
 	}
 
 	@keyframes spin {
@@ -608,22 +693,5 @@
 
 	.btn-add-resource:hover {
 		background: #0056b3;
-	}
-
-	.dialog-close-btn {
-		position: absolute;
-		top: 0px;
-		right: 0px;
-		background: transparent;
-		border: none;
-		font-size: 1.5em;
-		color: #888;
-		cursor: pointer;
-		z-index: 10;
-		transition: color 0.2s;
-	}
-
-	.dialog-close-btn:hover {
-		color: #333;
 	}
 </style>
